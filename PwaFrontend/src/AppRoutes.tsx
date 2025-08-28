@@ -8,4 +8,3 @@ const AppRoutes = () => (
 );
 
 export default AppRoutes;
-π;

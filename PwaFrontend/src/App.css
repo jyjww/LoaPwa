@@ -6,25 +6,3 @@
   padding: 2rem;
   text-align: center;
 }
-
-@layer components {
-  .dashboard-card {
-    @apply mobile-card hover:shadow-lg transition-all duration-300;
-  }
-
-  .dashboard-card-header {
-    @apply p-3 sm:p-4;
-  }
-
-  .dashboard-card-content {
-    @apply p-3 sm:p-4 pt-0;
-  }
-
-  .dashboard-stat-value {
-    @apply text-xl sm:text-3xl font-bold mb-1 sm:mb-2;
-  }
-
-  .dashboard-stat-label {
-    @apply text-xs sm:text-sm text-muted-foreground;
-  }
-}

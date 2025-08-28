@@ -1,15 +1,15 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import Navigation from "@/components/Navigation";
-import { TrendingUp, Search, Star, Bell, BarChart3 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Navigation from '@/components/Navigation';
+import { TrendingUp, Search, Star, Bell, BarChart3 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
   return (
     <div className="min-h-screen p-2 sm:p-4 bg-background">
       <div className="max-w-6xl mx-auto">
         <Navigation />
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
           {/* Quick Stats */}
           <Card className="mobile-card bg-gradient-to-br from-card to-secondary/10">
@@ -104,16 +104,21 @@ const Dashboard = () => {
               <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
               Recent Alerts
             </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Items below target price</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
+              Items below target price
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="space-y-2 sm:space-y-4">
               {[
-                { name: "Greatsword of Salvation", price: 9500, target: 10000, change: -5.0 },
-                { name: "Legendary Ability Stone", price: 1800, target: 2000, change: -10.0 },
-                { name: "Pheon Bundle", price: 4200, target: 4500, change: -6.7 }
+                { name: 'Greatsword of Salvation', price: 9500, target: 10000, change: -5.0 },
+                { name: 'Legendary Ability Stone', price: 1800, target: 2000, change: -10.0 },
+                { name: 'Pheon Bundle', price: 4200, target: 4500, change: -6.7 },
               ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-2 sm:p-3 bg-muted/30 rounded-lg border border-border/30">
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-2 sm:p-3 bg-muted/30 rounded-lg border border-border/30"
+                >
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-xs sm:text-sm truncate">{item.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -121,10 +126,10 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="text-right ml-2">
-                    <div className="font-bold text-accent text-xs sm:text-sm">{item.price.toLocaleString()}G</div>
-                    <div className="text-xs text-accent">
-                      {item.change}%
+                    <div className="font-bold text-accent text-xs sm:text-sm">
+                      {item.price.toLocaleString()}G
                     </div>
+                    <div className="text-xs text-accent">{item.change}%</div>
                   </div>
                 </div>
               ))}
