@@ -8,8 +8,8 @@ import AuctionHouse from './pages/AuctionHouse';
 import Market from './pages/Market';
 import Favorites from './pages/Favorites';
 import NotFound from './pages/NotFound';
-import InstallPWA from './components/InstallPWA';
-import EnablePush from './components/EnablePush';
+// import InstallPWA from './components/InstallPWA';
+// import EnablePush from './components/EnablePush';
 
 const queryClient = new QueryClient();
 
@@ -29,8 +29,8 @@ const App = () => (
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
-    <InstallPWA />
-    <EnablePush />
+    {/* <InstallPWA />
+    <EnablePush /> */}
   </QueryClientProvider>
 );
 

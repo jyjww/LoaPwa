@@ -1,0 +1,84 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 2,
+  "numPassedTests": 2,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 2,
+  "numTotalTests": 2,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1756435862009,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Auctions API (e2e)"],
+          "duration": 101,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Auctions API (e2e) /auctions/search (POST)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "startAt": 1756435863074,
+          "status": "passed",
+          "title": "/auctions/search (POST)"
+        }
+      ],
+      "endTime": 1756435863177,
+      "message": "",
+      "name": "/Volumes/T7/Documents/LoaPwa/Backend/test/auctions.e2e-spec.ts",
+      "startTime": 1756435862205,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["AppController (e2e)"],
+          "duration": 16,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AppController (e2e) / (GET)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "startAt": 1756435863266,
+          "status": "passed",
+          "title": "/ (GET)"
+        }
+      ],
+      "endTime": 1756435863282,
+      "message": "",
+      "name": "/Volumes/T7/Documents/LoaPwa/Backend/test/app.e2e-spec.ts",
+      "startTime": 1756435863190,
+      "status": "passed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}
