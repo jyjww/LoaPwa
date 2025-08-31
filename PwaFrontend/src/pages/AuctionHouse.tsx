@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Navigation from '@/components/Navigation';
-import ItemCard from '@/components/ItemCard';
+import ItemCard from '@/components/AuctionItemCard';
 import { Search } from 'lucide-react';
 import SearchBar from '@/components/pages/SearchBar';
 import CategoryFilter from '@/components/pages/CategoryFilter';

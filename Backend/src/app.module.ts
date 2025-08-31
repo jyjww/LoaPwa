@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TerminusModule } from '@nestjs/terminus';
 import { AppController } from './app.controller';
 import { AuctionModule } from './auctions/auction.module';
+import { MarketModule } from './markets/market.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { AuctionModule } from './auctions/auction.module';
     }),
     TerminusModule,
     AuctionModule,
+    MarketModule,
   ],
   controllers: [AppController],
 })

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Navigation from '@/components/Navigation';
-import ItemCard from '@/components/ItemCard';
+import ItemCard from '@/components/AuctionItemCard';
 import { Star, Target, Bell, Trash2, Edit } from 'lucide-react';
 import {
   Dialog,
