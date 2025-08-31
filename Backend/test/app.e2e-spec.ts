@@ -21,4 +21,4 @@ describe('AppController (e2e)', () => {
   });
 });
 
-// npm run test:e2e 테스트 명령어
+// npm run test:e2e -- -t "Markets API" 테스트 명령어
