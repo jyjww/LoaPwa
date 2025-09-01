@@ -9,6 +9,7 @@ import CategoryFilter from '@/components/pages/CategoryFilter';
 import { CategoryEtcOptions } from '@/constants/etcOptions';
 import EtcOptionsFilter from '@/components/pages/EtcOptionsFilter';
 import { searchAuctions } from '@/services/auction.dto';
+import { addFavorite } from '@/services/favorites.service';
 
 const AuctionHouse = () => {
   const [filters, setFilters] = useState({
@@ -97,6 +98,29 @@ const AuctionHouse = () => {
     });
   }, [results, filters]);
 
+  const handleAddFavorite = async (item: any) => {
+    try {
+      const saved = await addFavorite({
+        source: 'auction', // ✅ Auction 전용
+        name: item.name,
+        grade: item.grade,
+        tier: item.tier,
+        icon: item.icon,
+        quality: item.quality,
+        currentPrice: item.currentPrice,
+        previousPrice: item.previousPrice,
+        auctionInfo: item.auctionInfo,
+        options: item.options,
+        itemId: item.itemId,
+      });
+      console.log('즐겨찾기 저장 성공:', saved);
+      alert('즐겨찾기에 추가되었습니다!');
+    } catch (err) {
+      console.error('즐겨찾기 저장 실패:', err);
+      alert('로그인이 필요합니다.');
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 bg-background">
       <div className="max-w-6xl mx-auto">
@@ -146,7 +170,7 @@ const AuctionHouse = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((item, idx) => (
-            <ItemCard key={item.id ?? idx} item={item} onFavorite={(i) => console.log('Fav:', i)} />
+            <ItemCard key={item.id ?? idx} item={item} onFavorite={() => handleAddFavorite(item)} />
           ))}
         </div>
 

@@ -62,10 +62,13 @@ export class MarketService {
           grade: item.Grade,
           icon: item.Icon,
           bundleCount: item.BundleCount,
-          tradeRemainCount: item.TradeRemainCount,
-          yDayAvgPrice: item.YDayAvgPrice,
-          recentPrice: item.RecentPrice,
-          currentMinPrice: item.CurrentMinPrice,
+          quality: item.Quality,
+          marketInfo: {
+            currentMinPrice: item.CurrentMinPrice,
+            yDayAvgPrice: item.YDayAvgPrice,
+            recentPrice: item.RecentPrice,
+            tradeRemainCount: item.TradeRemainCount,
+          },
         })),
       };
     } catch (err) {
