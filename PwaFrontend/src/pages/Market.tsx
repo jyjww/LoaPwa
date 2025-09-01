@@ -51,7 +51,7 @@ const Market = () => {
       <div className="max-w-6xl mx-auto">
         <Navigation />
 
-        <Card className="mb-6">
+        <Card className="rounded-lg border text-card-foreground shadow-sm mobile-card bg-gradient-to-br from-card to-primary/20 mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5 text-primary" />

@@ -14,7 +14,7 @@ const Navigation = () => {
   ];
 
   return (
-    <Card className="mobile-card p-3 sm:p-4 mb-4 mx-2 sm:mx-0">
+    <Card className="mobile-card p-3 sm:p-4 mb-4 sm:mx-0">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-3">
         <div className="flex items-center gap-2">
           <Gamepad2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
