@@ -4,17 +4,34 @@ import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
 import { useState } from 'react';
 
+// interface MarketItemCardProps {
+//   item: {
+//     id: number;
+//     name: string;
+//     grade: string;
+//     icon?: string;
+//     currentMinPrice: number;
+//     yDayAvgPrice?: number;
+//     recentPrice?: number;
+//     tradeRemainCount?: number;
+//     quality?: number;
+//   };
+//   onFavorite?: (item: any) => void;
+//   isFavorite?: boolean;
+// }
 interface MarketItemCardProps {
   item: {
-    id: number;
+    id: string;
     name: string;
     grade: string;
     icon?: string;
-    currentMinPrice: number;
-    yDayAvgPrice?: number;
-    recentPrice?: number;
-    tradeRemainCount?: number;
     quality?: number;
+    marketInfo?: {
+      currentMinPrice: number;
+      yDayAvgPrice?: number;
+      recentPrice?: number;
+      tradeRemainCount?: number;
+    };
   };
   onFavorite?: (item: any) => void;
   isFavorite?: boolean;
@@ -86,27 +103,34 @@ const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCard
       <CardContent className="p-3 sm:p-4 pt-0">
         <div className="space-y-2 sm:space-y-3">
           {/* ✅ 최소가 */}
+          {/* {(item.currentMinPrice ?? item.recentPrice ?? 0).toLocaleString()}G */}
           <div className="flex items-center justify-between">
             <span className="text-xs sm:text-sm text-muted-foreground">최소가</span>
             <span className="text-sm sm:text-lg font-bold text-primary">
-              {item.currentMinPrice.toLocaleString()}G
+              {item.marketInfo?.currentMinPrice?.toLocaleString() ?? 0}G
             </span>
           </div>
 
           {/* ✅ 전일 평균 */}
-          {item.yDayAvgPrice !== undefined && (
+          {/* {item.yDayAvgPrice !== undefined && ( */}
+          {/* {item.yDayAvgPrice.toLocaleString()}G */}
+          {item.marketInfo?.yDayAvgPrice !== undefined && (
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">전일 평균</span>
-              <span className="text-sm font-bold">{item.yDayAvgPrice.toLocaleString()}G</span>
+              <span className="text-sm font-bold">
+                {item.marketInfo?.yDayAvgPrice?.toLocaleString() ?? 0}G
+              </span>
             </div>
           )}
 
           {/* ✅ 잔여 거래 */}
-          {item.tradeRemainCount !== undefined && (
+          {/* {item.tradeRemainCount} */}
+          {/* {item.tradeRemainCount !== undefined && ( */}
+          {item.marketInfo?.tradeRemainCount !== undefined && (
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">잔여 거래</span>
               <Badge variant="secondary" className="text-xs">
-                {item.tradeRemainCount}
+                {item.marketInfo?.tradeRemainCount ?? 0}
               </Badge>
             </div>
           )}

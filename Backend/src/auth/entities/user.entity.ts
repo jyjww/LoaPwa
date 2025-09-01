@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Favorite } from 'src/favorites/entities/favorite.entity';
 
 @Entity('users')
 export class User {
@@ -16,4 +17,8 @@ export class User {
 
   @Column({ nullable: true })
   provider: string; // 'google', 'kakao' 등
+
+  // 사용자 기준 즐겨찾기 목록
+  @OneToMany(() => Favorite, (favorite) => favorite.user)
+  favorites: Favorite[];
 }

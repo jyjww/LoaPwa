@@ -7,8 +7,7 @@ import { AppController } from './app.controller';
 import { AuctionModule } from './auctions/auction.module';
 import { MarketModule } from './markets/market.module';
 import { AuthModule } from './auth/auth.module';
-
-import { User } from './auth/entities/user.entity';
+import { FavoritesModule } from './favorites/favorite.module';
 
 @Module({
   imports: [
@@ -28,6 +27,7 @@ import { User } from './auth/entities/user.entity';
     AuctionModule,
     MarketModule,
     AuthModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
 })

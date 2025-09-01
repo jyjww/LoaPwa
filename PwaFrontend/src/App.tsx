@@ -8,6 +8,7 @@ import AppRoutes from './AppRoutes';
 
 const queryClient = new QueryClient();
 
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

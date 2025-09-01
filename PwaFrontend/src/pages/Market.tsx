@@ -8,6 +8,7 @@ import { Filter, Search } from 'lucide-react';
 import { marketCategories } from '@/constants/marketCategories';
 import SearchBar from '@/components/pages/SearchBar';
 import { searchMarket } from '@/services/market.dto';
+import { addFavorite } from '@/services/favorites.service';
 
 const Market = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | 'All'>('All');
@@ -37,6 +38,28 @@ const Market = () => {
 
   const handleChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, pageNo: 1 }));
+  };
+
+  const handleFavorite = async (item: any) => {
+    try {
+      await addFavorite({
+        source: 'market',
+        name: item.name,
+        grade: item.grade,
+        icon: item.icon,
+        currentPrice: item.recentPrice ?? item.currentMinPrice ?? 0,
+        previousPrice: item.yDayAvgPrice,
+        marketInfo: {
+          currentMinPrice: item.currentMinPrice,
+          yDayAvgPrice: item.yDayAvgPrice,
+          recentPrice: item.recentPrice,
+          tradeRemainCount: item.tradeRemainCount,
+        },
+      });
+      console.log('✅ 즐겨찾기 추가 성공:', item.name);
+    } catch (err) {
+      console.error('❌ 즐겨찾기 추가 실패:', err);
+    }
   };
 
   const filteredItems = items.filter((item) => {
@@ -127,19 +150,23 @@ const Market = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <MarketItemCard
-              key={item.id}
+              key={`${item.id}-${index}`}
               item={{
                 id: item.id,
                 name: item.name,
                 grade: item.grade,
                 icon: item.icon,
-                currentMinPrice: item.currentMinPrice,
-                yDayAvgPrice: item.yDayAvgPrice,
-                recentPrice: item.recentPrice,
-                tradeRemainCount: item.tradeRemainCount,
+                quality: item.quality,
+                marketInfo: {
+                  currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
+                  yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
+                  recentPrice: item.marketInfo?.recentPrice ?? 0,
+                  tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
+                },
               }}
+              onFavorite={handleFavorite}
             />
           ))}
         </div>
