@@ -8,5 +8,6 @@ import { MarketController } from './market.controller';
   imports: [HttpModule, ConfigModule],
   controllers: [MarketController],
   providers: [MarketService],
+  exports: [MarketService],
 })
 export class MarketModule {}

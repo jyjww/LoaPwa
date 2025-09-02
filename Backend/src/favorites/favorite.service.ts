@@ -4,14 +4,17 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { Favorite } from './entities/favorite.entity';
-import { User } from 'src/auth/entities/user.entity';
+import { User } from '@/auth/entities/user.entity';
 import { CreateFavoriteDto } from './dto/create-favorite.dto';
+import { shouldTriggerAlert } from '@/favorites/alert.util';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class FavoritesService {
   constructor(
     @InjectRepository(Favorite)
     private readonly favoriteRepo: Repository<Favorite>,
+    private readonly eventEmitter: EventEmitter2,
 
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
@@ -20,7 +23,7 @@ export class FavoritesService {
   /**
    * 유저 기준 즐겨찾기 전체 조회 (선택적으로 source 필터링 가능)
    */
-  async findAllByUser(userId: number, source?: 'auction' | 'market') {
+  async findAllByUser(userId: string, source?: 'auction' | 'market') {
     const where: FindOptionsWhere<Favorite> = { user: { id: userId } as any };
     if (source) where.source = source;
 
@@ -36,7 +39,8 @@ export class FavoritesService {
    * - 원본 보존: auctionInfo / marketInfo
    * - 운영 필드: isAlerted / active / (lastCheckedAt, lastNotifiedAt 초기 null)
    */
-  async create(userId: number, dto: CreateFavoriteDto) {
+  async create(userId: string, dto: CreateFavoriteDto) {
+    const id = String(userId);
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) throw new NotFoundException('User not found');
 
@@ -96,7 +100,7 @@ export class FavoritesService {
   /**
    * 즐겨찾기 삭제
    */
-  async remove(userId: number, favoriteId: string) {
+  async remove(userId: string, favoriteId: string) {
     const favorite = await this.favoriteRepo.findOne({
       where: { id: favoriteId },
       relations: ['user'],
@@ -111,7 +115,7 @@ export class FavoritesService {
   /**
    * 타겟 가격 수정
    */
-  async updateTargetPrice(userId: number, favoriteId: string, price: number) {
+  async updateTargetPrice(userId: string, favoriteId: string, price: number) {
     const favorite = await this.favoriteRepo.findOne({
       where: { id: favoriteId },
       relations: ['user'],
@@ -150,5 +154,50 @@ export class FavoritesService {
   ) {
     await this.favoriteRepo.update({ id: favoriteId }, patch);
     return this.favoriteRepo.findOneBy({ id: favoriteId });
+  }
+
+  /**
+   * 부분 업데이트(patch) -> DB 반영 후 다시 조회
+   * 스케줄러/배치 작업에서 여러 즐겨찾기를 돌며 스냅샷 갱신 + 알림 체크
+   */
+  async updateSnapshotAndCheck(favoriteId: string, patch: Partial<Favorite>) {
+    await this.favoriteRepo.update({ id: favoriteId }, patch);
+    const updated = await this.favoriteRepo.findOne({
+      where: { id: favoriteId },
+      relations: ['user'],
+    });
+
+    if (updated && shouldTriggerAlert(updated)) {
+      // 알림 큐에 push
+      await this.eventEmitter.emitAsync('favorite.alert', updated);
+      // 플래그 업데이트
+      updated.isAlerted = true;
+      await this.favoriteRepo.save(updated);
+    }
+
+    return updated;
+  }
+
+  /**
+   * 특정 아이템의 가격을 실시간으로 단건 업데이트
+   * currentPrice 하나만 갱신하는 단일 책임 함수
+   * 이전 가격을 직접 previousPrice에 넣고 저장
+   */
+  async updateFavoritePrice(id: string, currentPrice: number) {
+    const favorite = await this.favoriteRepo.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+    if (!favorite) throw new NotFoundException('Favorite not found');
+
+    favorite.previousPrice = favorite.currentPrice;
+    favorite.currentPrice = currentPrice;
+    await this.favoriteRepo.save(favorite);
+
+    if (shouldTriggerAlert(favorite)) {
+      this.eventEmitter.emit('favorite.alert', favorite);
+    }
+
+    return favorite;
   }
 }

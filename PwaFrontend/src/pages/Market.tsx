@@ -47,16 +47,16 @@ const Market = () => {
         name: item.name,
         grade: item.grade,
         icon: item.icon,
-        currentPrice: item.recentPrice ?? item.currentMinPrice ?? 0,
-        previousPrice: item.yDayAvgPrice,
+        currentPrice: item.marketInfo?.recentPrice ?? item.marketInfo?.currentMinPrice ?? 0,
+        previousPrice: item.marketInfo?.yDayAvgPrice ?? 0,
         marketInfo: {
-          currentMinPrice: item.currentMinPrice,
-          yDayAvgPrice: item.yDayAvgPrice,
-          recentPrice: item.recentPrice,
-          tradeRemainCount: item.tradeRemainCount,
+          currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
+          yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
+          recentPrice: item.marketInfo?.recentPrice ?? 0,
+          tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
         },
       });
-      console.log('✅ 즐겨찾기 추가 성공:', item.name);
+      alert('즐겨찾기 추가 성공');
     } catch (err) {
       console.error('❌ 즐겨찾기 추가 실패:', err);
     }

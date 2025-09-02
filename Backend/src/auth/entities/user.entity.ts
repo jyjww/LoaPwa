@@ -1,10 +1,11 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { Favorite } from 'src/favorites/entities/favorite.entity';
+import { Favorite } from '@/favorites/entities/favorite.entity';
+import { FcmToken } from '@/fcm/entities/fcm-token.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   email: string;
@@ -19,6 +20,9 @@ export class User {
   provider: string; // 'google', 'kakao' 등
 
   // 사용자 기준 즐겨찾기 목록
-  @OneToMany(() => Favorite, (favorite) => favorite.user)
+  @OneToMany(() => Favorite, (favorite: Favorite) => favorite.user)
   favorites: Favorite[];
+
+  @OneToMany(() => FcmToken, (fcm: FcmToken) => fcm.user, { cascade: true })
+  fcmTokens: FcmToken[];
 }

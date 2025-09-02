@@ -15,9 +15,9 @@ export class GoogleController {
   @Get('callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Req() req, @Res() res) {
-    const { user, token } = await this.googleService.handleGoogleLogin(req.user);
+    const { user, accessToken } = await this.googleService.handleGoogleLogin(req.user);
 
     // ✅ 프론트엔드 리다이렉트 (JWT 전달)
-    return res.redirect(`${process.env.FRONTEND_URL}/login/success?token=${token}`);
+    return res.redirect(`${process.env.FRONTEND_URL}/login/success?accessToken=${accessToken}`);
   }
 }

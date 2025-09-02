@@ -2,7 +2,7 @@
 
 import { Controller, Get, Post, Delete, Patch, Param, Body, Req, UseGuards } from '@nestjs/common';
 import { FavoritesService } from './favorite.service';
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { JwtAuthGuard } from '@/auth/jwt.guard';
 import { CreateFavoriteDto } from './dto/create-favorite.dto';
 
 @Controller('favorites')
