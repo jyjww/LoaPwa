@@ -17,7 +17,12 @@ export class GoogleService {
       });
     }
 
-    const token = await this.authService.generateJwt(user);
-    return { user, token };
+    const { accessToken, refreshToken } = await this.authService.generateTokens(user);
+
+    return {
+      user,
+      accessToken,
+      refreshToken,
+    };
   }
 }

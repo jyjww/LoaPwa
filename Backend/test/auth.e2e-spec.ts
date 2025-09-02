@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
+import { randomUUID } from 'crypto';
 
 describe('Auth Test (e2e)', () => {
   let app: INestApplication;
@@ -21,8 +22,9 @@ describe('Auth Test (e2e)', () => {
     authService = moduleFixture.get(AuthService);
 
     // ✅ 테스트용 가짜 유저로 JWT 발급
-    const fakeUser = { id: 1, email: 'test@example.com', name: 'Test User' } as any;
-    token = await authService.generateJwt(fakeUser);
+    const fakeUser = { id: randomUUID(), email: 'test@example.com', name: 'Test User' } as any;
+    const { accessToken } = await authService.generateTokens(fakeUser);
+    token = accessToken;
   });
 
   afterAll(async () => {

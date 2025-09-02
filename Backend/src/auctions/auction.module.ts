@@ -7,5 +7,6 @@ import { AuctionService } from './auction.service';
   imports: [HttpModule], // 외부 API 호출용
   controllers: [AuctionController],
   providers: [AuctionService],
+  exports: [AuctionService],
 })
 export class AuctionModule {}
