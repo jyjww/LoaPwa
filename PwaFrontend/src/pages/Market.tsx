@@ -8,7 +8,7 @@ import { Filter, Search } from 'lucide-react';
 import { marketCategories } from '@/constants/marketCategories';
 import SearchBar from '@/components/pages/SearchBar';
 import { searchMarket } from '@/services/market.dto';
-import { addFavorite } from '@/services/favorites.service';
+import { addFavorite } from '@/services/favorites/favorites.service';
 
 const Market = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | 'All'>('All');
@@ -74,7 +74,7 @@ const Market = () => {
       <div className="max-w-6xl mx-auto">
         <Navigation />
 
-        <Card className="rounded-lg border text-card-foreground shadow-sm mobile-card bg-gradient-to-br from-card to-primary/20 mb-6">
+        <Card className="bg-gradient-to-br from-card to-primary/20 mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5 text-primary" />

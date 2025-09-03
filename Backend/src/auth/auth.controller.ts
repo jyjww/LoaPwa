@@ -10,16 +10,17 @@ import {
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
+import { JwtService } from '@nestjs/jwt';
 import { GoogleService } from './google/google.service';
 import { GoogleAuthGuard } from './google/google.guard';
 import { JwtAuthGuard } from './jwt.guard';
 
 @Controller('auth')
 export class AuthController {
-  jwtService: any;
   constructor(
     private readonly authService: AuthService,
     private readonly googleService: GoogleService,
+    private readonly jwtService: JwtService,
   ) {}
 
   // ✅ 구글 로그인 시작 (프론트에서 /auth/google 호출하면 구글로 리다이렉트)
@@ -66,8 +67,8 @@ export class AuthController {
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -77,8 +78,13 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Req() req: Request, @Res() res: Response) {
     const refreshToken = req.cookies['refresh_token'];
-    if (!refreshToken) throw new UnauthorizedException();
+    // console.log('🍪 refresh_token from cookie:', req.cookies['refresh_token']);
+    // if (!refreshToken) throw new UnauthorizedException();
 
+    if (!refreshToken) {
+      console.error('❌ no refresh token in cookie');
+      return res.status(401).json({ message: 'No refresh token' });
+    }
     try {
       const payload = this.jwtService.verify(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
@@ -92,8 +98,8 @@ export class AuthController {
       // 새로운 RefreshToken으로 갱신 (쿠키 교체)
       res.cookie('refresh_token', newRefresh, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 

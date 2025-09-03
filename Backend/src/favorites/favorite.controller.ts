@@ -29,4 +29,13 @@ export class FavoritesController {
   update(@Req() req, @Param('id') id: string, @Body() body: { targetPrice: number }) {
     return this.favoritesService.updateTargetPrice(req.user.id, id, body.targetPrice);
   }
+
+  @Patch(':id/alarm')
+  async updateAlarm(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: { isAlerted: boolean; targetPrice: number },
+  ) {
+    return this.favoritesService.updateFavoriteAlarm(req.user.id, id, body);
+  }
 }

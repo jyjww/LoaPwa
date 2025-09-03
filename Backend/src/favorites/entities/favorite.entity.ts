@@ -27,12 +27,13 @@ export class Favorite {
   quality?: number;
 
   // 공통 스냅샷(표준화한 현재가/이전가)
-  @Column()
-  currentPrice: number; // market이면 recentPrice 또는 currentMinPrice 중 택1
-  @Column({ nullable: true })
-  previousPrice?: number; // market이면 yDayAvgPrice
+  @Column('numeric', { precision: 12, scale: 2 })
+  currentPrice: number;
 
-  @Column({ default: 0 })
+  @Column('numeric', { precision: 12, scale: 2, nullable: true })
+  previousPrice?: number;
+
+  @Column('numeric', { precision: 12, scale: 2, default: 0 })
   targetPrice: number;
 
   @Column()

@@ -3,6 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
 import { useState } from 'react';
+// import { useLocation } from 'react-router-dom';
+import Alarm from '@/pages/Alarm';
 
 // interface MarketItemCardProps {
 //   item: {
@@ -39,6 +41,7 @@ interface MarketItemCardProps {
 
 const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
+  // const location = useLocation();
 
   const handleFavorite = () => {
     setIsAnimating(true);
@@ -97,6 +100,8 @@ const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCard
           >
             <Star className={`h-3 w-3 sm:h-4 sm:w-4 ${isFavorite ? 'fill-current' : ''}`} />
           </Button>
+          {/* {location.pathname === '/favorites' && <Alarm favoriteId={item.id} />} */}
+          <Alarm favoriteId={item.id} />
         </div>
       </CardHeader>
 

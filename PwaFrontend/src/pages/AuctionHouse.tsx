@@ -9,7 +9,7 @@ import CategoryFilter from '@/components/pages/CategoryFilter';
 import { CategoryEtcOptions } from '@/constants/etcOptions';
 import EtcOptionsFilter from '@/components/pages/EtcOptionsFilter';
 import { searchAuctions } from '@/services/auction.dto';
-import { addFavorite } from '@/services/favorites.service';
+import { addFavorite } from '@/services/favorites/favorites.service';
 
 const AuctionHouse = () => {
   const [filters, setFilters] = useState({
@@ -44,7 +44,8 @@ const AuctionHouse = () => {
       setTotalCount(data.totalCount ?? 0);
 
       // ✅ 서버에서 더 이상 데이터가 없을 때만 false
-      setHasMore(data.items && data.items.length > 0);
+      // setHasMore(data.items && data.items.length > 0);
+      setHasMore(results.length + (data.items?.length || 0) < data.totalCount);
     } catch (err) {
       console.error('API 검색 실패:', err);
       setHasMore(false); // API 에러 발생 시 더 이상 요청하지 않도록 설정
@@ -64,7 +65,7 @@ const AuctionHouse = () => {
   const handleChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, pageNo: 1 }));
   };
-
+  /*
   // pageNo 변경될 때 API 호출 (단, isSearching이 true일 때만)
   useEffect(() => {
     if (isSearching) {
@@ -84,6 +85,35 @@ const AuctionHouse = () => {
         }
       },
       { threshold: 1 },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loading, hasMore]);
+*/
+  // pageNo 변경될 때 API 호출
+  useEffect(() => {
+    if (!isSearching) return;
+
+    const fetch = async () => {
+      if (loading) return; // 중복 방지
+      await handleSearch(filters.pageNo === 1);
+    };
+    fetch();
+  }, [filters.pageNo, isSearching]);
+
+  // 무한 스크롤 옵저버
+  useEffect(() => {
+    if (!loaderRef.current) return;
+    const target = loaderRef.current;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && hasMore) {
+          setFilters((prev) => ({ ...prev, pageNo: (prev.pageNo as number) + 1 }));
+        }
+      },
+      { threshold: 0.1 },
     );
 
     observer.observe(target);
@@ -126,7 +156,7 @@ const AuctionHouse = () => {
       <div className="max-w-6xl mx-auto">
         <Navigation />
 
-        <Card className="rounded-lg border text-card-foreground shadow-sm mobile-card bg-gradient-to-br from-card to-primary/20 mb-6">
+        <Card className="bg-gradient-to-br from-card to-primary/20 mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5 text-primary" />

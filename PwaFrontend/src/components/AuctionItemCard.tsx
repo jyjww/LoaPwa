@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, TrendingDown, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
+// import { useLocation } from 'react-router-dom';
+import Alarm from '@/pages/Alarm';
 
 interface ItemOption {
   name: string;
@@ -34,6 +36,7 @@ interface ItemCardProps {
 
 const ItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
+  // const location = useLocation();
 
   const gradeColors: Record<string, string> = {
     일반: 'bg-gray-600 text-white border-gray-600',
@@ -95,6 +98,8 @@ const ItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps) => {
           >
             <Star className={`h-3 w-3 sm:h-4 sm:w-4 ${isFavorite ? 'fill-current' : ''}`} />
           </Button>
+          {/* {location.pathname === '/favorites' && <Alarm favoriteId={item.id} />} */}
+          <Alarm favoriteId={item.id} />
         </div>
       </CardHeader>
 

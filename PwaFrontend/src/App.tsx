@@ -5,9 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import Header from './pages/global/Header';
 import AppRoutes from './AppRoutes';
+import TokenRefresh from '@/utils/tokenRefresh';
 
 const queryClient = new QueryClient();
-
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -17,6 +17,7 @@ const App = () => (
       <BrowserRouter>
         <Header />
         <AppRoutes />
+        <TokenRefresh />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

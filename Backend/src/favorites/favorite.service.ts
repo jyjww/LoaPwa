@@ -200,4 +200,24 @@ export class FavoritesService {
 
     return favorite;
   }
+
+  async updateFavoriteAlarm(
+    userId: string,
+    favoriteId: string,
+    alarmDto: { isAlerted: boolean; targetPrice: number },
+  ) {
+    const favorite = await this.favoriteRepo.findOne({
+      where: { id: favoriteId },
+      relations: ['user'],
+    });
+
+    if (!favorite) throw new NotFoundException('Favorite not found');
+    if (favorite.user.id !== userId) throw new ForbiddenException();
+
+    // 🔹 프론트에서 넘어온 알림 설정 반영
+    favorite.isAlerted = alarmDto.isAlerted;
+    favorite.targetPrice = alarmDto.targetPrice;
+
+    return this.favoriteRepo.save(favorite);
+  }
 }
