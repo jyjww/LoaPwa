@@ -7,10 +7,19 @@ import { FavoritesService } from './favorite.service';
 import { MarketService } from '@/markets/market.service';
 import { AuctionService } from '@/auctions/auction.service';
 
+type MarketInfoFlat = {
+  currentMinPrice?: number;
+  yDayAvgPrice?: number | null;
+  recentPrice?: number;
+  tradeRemainCount?: number | null;
+};
+
+type AuctionInfoFlat = any; // 필요하면 명세로 좁히세요
+
 type Snapshot = {
   currentPrice: number;
   previousPrice?: number | null;
-  raw: any;
+  info: MarketInfoFlat | AuctionInfoFlat; // ← 이걸 DB에 그대로 넣음
 };
 
 @Injectable()
@@ -23,23 +32,23 @@ export class FavoritesScheduler {
     private readonly auctionService: AuctionService,
   ) {}
 
-  @Cron('*/1 * * * *')
+  @Cron('*/5 * * * *')
   async handleCron(): Promise<void> {
     const runId = Date.now().toString(36);
     this.logger.log(`🔔 [${runId}] FavoritesScheduler 실행`);
 
     const activeFavorites: Favorite[] = await this.favoritesService.findActive();
 
-    // ✅ bigint(string) → number 파싱
     const valid = activeFavorites.filter((f) => this.parseItemId(f.itemId) !== null);
-
-    // (디버그) 어떤 타입으로 들어오는지 확인
     const missing = activeFavorites.filter((f) => this.parseItemId(f.itemId) === null);
     if (missing.length) {
       this.logger.warn(
         `⚠️ [${runId}] favorites missing/invalid itemId: ${missing.length} (sample: ` +
-        missing.slice(0,3).map(m => `${m.name}/${m.source}:${String(m.itemId)}[${typeof m.itemId}]`).join(', ') +
-        `${missing.length>3?'...':''})`,
+          missing
+            .slice(0, 3)
+            .map((m) => `${m.name}/${m.source}:${String(m.itemId)}[${typeof m.itemId}]`)
+            .join(', ') +
+          `${missing.length > 3 ? '...' : ''})`,
       );
     }
 
@@ -65,7 +74,9 @@ export class FavoritesScheduler {
         const groupSize = favs.length;
 
         try {
-          this.logger.debug(`➡️  [${runId}] fetch ${source}:${itemId} name="${name}" (group=${groupSize})`);
+          this.logger.debug(
+            `➡️  [${runId}] fetch ${source}:${itemId} name="${name}" (group=${groupSize})`,
+          );
 
           let snapshot = cache.get(key);
           if (!snapshot) {
@@ -74,33 +85,42 @@ export class FavoritesScheduler {
             if (source === 'market') {
               const res = await this.marketService.search({ query: name });
               const ms = Date.now() - t0;
-              this.logger.debug(`🛰️  [${runId}] market.search("${name}") -> items=${res.items?.length ?? 0} (${ms}ms)`);
+              this.logger.debug(
+                `🛰️  [${runId}] market.search("${name}") -> items=${res.items?.length ?? 0} (${ms}ms)`,
+              );
 
               const item = res.items?.find((i: any) => i.id === itemId);
               if (!item) {
                 this.logger.warn(`⚠️  [${runId}] market itemId=${itemId} not found for "${name}"`);
                 return;
               }
-              // ✅ MarketService 매핑 키로 보정
+
+              // ✅ 평평한 marketInfo만 저장
+              const info: MarketInfoFlat = item.marketInfo ?? {};
               snapshot = {
-                currentPrice: item.marketInfo?.currentMinPrice ?? item.marketInfo?.recentPrice ?? 0,
-                previousPrice: item.marketInfo?.yDayAvgPrice ?? null,
-                raw: item,
+                currentPrice: info.currentMinPrice ?? info.recentPrice ?? 0,
+                previousPrice: info.yDayAvgPrice ?? null,
+                info, // ← flat
               };
             } else if (source === 'auction') {
               const res = await this.auctionService.search({ query: name });
               const ms = Date.now() - t0;
-              this.logger.debug(`🛰️  [${runId}] auction.search("${name}") -> items=${res.items?.length ?? 0} (${ms}ms)`);
+              this.logger.debug(
+                `🛰️  [${runId}] auction.search("${name}") -> items=${res.items?.length ?? 0} (${ms}ms)`,
+              );
 
               const item = res.items?.find((i: any) => i.id === itemId);
               if (!item) {
                 this.logger.warn(`⚠️  [${runId}] auction itemId=${itemId} not found for "${name}"`);
                 return;
               }
+
+              // 필요 시 auction 원본에서 필요한 필드만 추려서 info 구성
+              const info: AuctionInfoFlat = item; // 또는 { StartPrice: item.StartPrice, ... }
               snapshot = {
                 currentPrice: item.currentPrice,
                 previousPrice: item.previousPrice ?? null,
-                raw: item,
+                info,
               };
             } else {
               this.logger.warn(`⚠️  [${runId}] unknown source="${source}" for key=${key}`);
@@ -119,11 +139,13 @@ export class FavoritesScheduler {
           await this.favoritesService.updateSnapshotsAndEvaluateAll(favs, {
             currentPrice: snapshot.currentPrice,
             previousPrice: snapshot.previousPrice ?? undefined,
-            info: snapshot.raw,
+            info: snapshot.info, // ← raw 아님!
             lastCheckedAt: new Date(),
           });
           const msUpdate = Date.now() - t1;
-          this.logger.debug(`💾 [${runId}] updated & evaluated favorites=${groupSize} for ${key} (${msUpdate}ms)`);
+          this.logger.debug(
+            `💾 [${runId}] updated & evaluated favorites=${groupSize} for ${key} (${msUpdate}ms)`,
+          );
         } catch (e: any) {
           const status = e?.response?.status;
           const body = e?.response?.data;
@@ -139,7 +161,6 @@ export class FavoritesScheduler {
     this.logger.log(`✅ [${runId}] FavoritesScheduler 완료`);
   }
 
-  // ✅ bigint/string → number 파서
   private parseItemId(raw: unknown): number | null {
     if (raw == null) return null;
     const n = Number(raw);
@@ -147,12 +168,15 @@ export class FavoritesScheduler {
   }
 
   private groupByItem(favorites: Favorite[]): Record<string, Favorite[]> {
-    return favorites.reduce((acc, f) => {
-      const idNum = this.parseItemId(f.itemId);
-      if (idNum === null) return acc;
-      const key = `${f.source}:${idNum}`;
-      (acc[key] ||= []).push(f);
-      return acc;
-    }, {} as Record<string, Favorite[]>);
+    return favorites.reduce(
+      (acc, f) => {
+        const idNum = this.parseItemId(f.itemId);
+        if (idNum === null) return acc;
+        const key = `${f.source}:${idNum}`;
+        (acc[key] ||= []).push(f);
+        return acc;
+      },
+      {} as Record<string, Favorite[]>,
+    );
   }
 }
