@@ -132,6 +132,7 @@ const AuctionHouse = () => {
     try {
       const saved = await addFavorite({
         source: 'auction', // ✅ Auction 전용
+        itemId: item.id,
         name: item.name,
         grade: item.grade,
         tier: item.tier,
@@ -141,7 +142,6 @@ const AuctionHouse = () => {
         previousPrice: item.previousPrice,
         auctionInfo: item.auctionInfo,
         options: item.options,
-        itemId: item.itemId,
       });
       console.log('즐겨찾기 저장 성공:', saved);
       alert('즐겨찾기에 추가되었습니다!');

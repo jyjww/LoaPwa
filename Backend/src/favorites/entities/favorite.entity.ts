@@ -27,20 +27,50 @@ export class Favorite {
   quality?: number;
 
   // 공통 스냅샷(표준화한 현재가/이전가)
-  @Column('numeric', { precision: 12, scale: 2 })
+  @Column('numeric', {
+    precision: 12,
+    scale: 2,
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) => (v == null ? null : Number(v)),
+    },
+  })
   currentPrice: number;
 
-  @Column('numeric', { precision: 12, scale: 2, nullable: true })
+  @Column('numeric', {
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) => (v == null ? null : Number(v)),
+    },
+  })
   previousPrice?: number;
 
-  @Column('numeric', { precision: 12, scale: 2, default: 0 })
+  @Column('numeric', {
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) => (v == null ? null : Number(v)),
+    },
+  })
   targetPrice: number;
 
   @Column()
   source: 'auction' | 'market';
 
-  // 거래소 식별자(있으면 dedup 등에 유용)
-  @Column({ type: 'bigint', nullable: true })
+  // 거래소 식별자
+  @Column({
+    type: 'bigint',
+    nullable: true,
+    transformer: {
+      to: (v: number | null) => v, // DB로 저장할 때
+      from: (v: string | null) => (v == null ? null : Number(v)), // DB에서 읽을 때
+    },
+  })
   itemId?: number;
 
   // 경매장 원본 데이터
