@@ -1,17 +1,47 @@
-import { Favorite } from './entities/favorite.entity';
+export type AlertCandidate = {
+  active: boolean;
+  isAlerted: boolean; // 알림 설정 on/off
+  lastNotifiedAt?: Date | null;
+  previousPrice?: number | null;
+  currentPrice: number;
+  targetPrice?: number | null;
+};
 
-export function shouldTriggerAlert(fav: Favorite): boolean {
-  if (!fav.active || fav.isAlerted) return false; // 비활성/이미 알림된 경우 제외
+export type AlertOptions = {
+  cooldownMs?: number; // 기본 30분
+  crossingOnly?: boolean; // 재하락(크로싱)만 허용할지
+  now?: Date; // 테스트용 주입
+};
 
-  // 🎯 조건 1: 목표가 도달
-  if (fav.targetPrice && fav.currentPrice >= fav.targetPrice) {
-    return true;
+export function shouldTriggerAlert(fav: AlertCandidate, opts: AlertOptions = {}): boolean {
+  const { cooldownMs = 30 * 60 * 1000, crossingOnly = false, now = new Date() } = opts;
+
+  if (!fav.active || !fav.isAlerted) return false;
+
+  if (fav.lastNotifiedAt) {
+    const elapsed = now.getTime() - new Date(fav.lastNotifiedAt).getTime();
+    if (elapsed < cooldownMs) return false;
   }
 
-  // 🎯 조건 2: 20% 이상 가격 하락
-  if (fav.previousPrice && fav.currentPrice <= fav.previousPrice * 0.8) {
-    return true;
+  const hasTarget = typeof fav.targetPrice === 'number' && !Number.isNaN(fav.targetPrice);
+  const hitTarget =
+    hasTarget &&
+    typeof fav.currentPrice === 'number' &&
+    fav.currentPrice <= (fav.targetPrice as number);
+
+  const hasPrev = typeof fav.previousPrice === 'number' && !Number.isNaN(fav.previousPrice);
+  const bigDrop =
+    hasPrev &&
+    typeof fav.currentPrice === 'number' &&
+    fav.currentPrice <= (fav.previousPrice as number) * 0.8;
+
+  if (!hitTarget && !bigDrop) return false;
+
+  if (crossingOnly && hasPrev && hasTarget && hitTarget) {
+    const wasAbove = (fav.previousPrice as number) > (fav.targetPrice as number);
+    const nowBelowOrEqual = fav.currentPrice <= (fav.targetPrice as number);
+    if (!(wasAbove && nowBelowOrEqual)) return false;
   }
 
-  return false;
+  return true;
 }

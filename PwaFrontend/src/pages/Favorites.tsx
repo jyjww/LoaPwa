@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { fetchFavorites, removeFavorite, updateTargetPrice } from '@/services/favorites.service';
+import { fetchFavorites, removeFavorite, updateTargetPrice } from '@/services/favorites/favorites.service';
 
 const Favorites = () => {
   const navigate = useNavigate();
