@@ -1,5 +1,5 @@
 // src/favorites/entities/favorite.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index } from 'typeorm';
 import { User } from '@/auth/entities/user.entity';
 
 @Entity()
@@ -9,6 +9,21 @@ export class Favorite {
 
   @ManyToOne(() => User, (user) => user.favorites, { onDelete: 'CASCADE' })
   user: User;
+
+  // 거래소 식별자
+  @Column({
+    type: 'bigint',
+    nullable: true,
+    transformer: {
+      to: (v: number | null) => v, // DB로 저장할 때
+      from: (v: string | null) => (v == null ? null : Number(v)), // DB에서 읽을 때
+    },
+  })
+  itemId?: number;
+
+  @Index('idx_favorite_matchkey', ['matchKey'])
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  matchKey?: string;
 
   @Column()
   name: string;
@@ -61,17 +76,6 @@ export class Favorite {
 
   @Column()
   source: 'auction' | 'market';
-
-  // 거래소 식별자
-  @Column({
-    type: 'bigint',
-    nullable: true,
-    transformer: {
-      to: (v: number | null) => v, // DB로 저장할 때
-      from: (v: string | null) => (v == null ? null : Number(v)), // DB에서 읽을 때
-    },
-  })
-  itemId?: number;
 
   // 경매장 원본 데이터
   @Column('jsonb', { nullable: true })

@@ -45,6 +45,8 @@ export class AuctionService {
       }),
     };
 
+    console.debug(`[AuctionService] body=${JSON.stringify(requestBody)}`);
+
     try {
       const response = await lastValueFrom(
         this.http.post(this.BASE_URL, requestBody, {
@@ -54,6 +56,8 @@ export class AuctionService {
           },
         }),
       );
+
+      console.debug(`[AuctionService] res=${JSON.stringify(response.data)}`);
 
       const data = response.data;
 

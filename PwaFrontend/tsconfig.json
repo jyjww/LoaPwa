@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src",
+    "extends": "../tsconfig.base.json",
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["*"]
+      "@/*": ["src/*"],
+      "@shared/*": ["../shared/*"]
     }
   },
   "files": [],

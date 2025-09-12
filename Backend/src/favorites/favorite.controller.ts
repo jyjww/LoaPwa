@@ -1,6 +1,17 @@
 // src/favorites/favorites.controller.ts
 
-import { Controller, Get, Post, Delete, Patch, Param, Body, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Patch,
+  Param,
+  Body,
+  Req,
+  UseGuards,
+  Logger,
+} from '@nestjs/common';
 import { FavoritesService } from './favorite.service';
 import { JwtAuthGuard } from '@/auth/jwt.guard';
 import { CreateFavoriteDto } from './dto/create-favorite.dto';
@@ -8,6 +19,8 @@ import { CreateFavoriteDto } from './dto/create-favorite.dto';
 @Controller('favorites')
 @UseGuards(JwtAuthGuard)
 export class FavoritesController {
+  private readonly logger = new Logger(FavoritesController.name);
+
   constructor(private readonly favoritesService: FavoritesService) {}
 
   @Get()
@@ -17,6 +30,9 @@ export class FavoritesController {
 
   @Post()
   create(@Req() req, @Body() dto: CreateFavoriteDto) {
+    this.logger.debug(
+      `create favorite: source=${dto.source}, itemId=${dto.itemId}, matchKey=${dto.matchKey}`,
+    );
     return this.favoritesService.create(req.user.id, dto);
   }
 

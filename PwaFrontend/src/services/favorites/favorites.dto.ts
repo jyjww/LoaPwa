@@ -2,6 +2,8 @@ export type FavoriteSource = 'auction' | 'market';
 
 export interface FavoritePayload {
   source: FavoriteSource;
+  itemId?: number | null;
+  matchKey?: string;
   name: string;
   grade: string;
   icon: string;
@@ -12,7 +14,6 @@ export interface FavoritePayload {
   auctionInfo?: Record<string, any>;
   marketInfo?: Record<string, any>;
   options?: Array<{ name: string; value: number; displayValue: number }>;
-  itemId?: number;
   targetPrice?: number;
 }
 

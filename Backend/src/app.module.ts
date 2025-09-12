@@ -16,7 +16,7 @@ import { FcmModule } from './fcm/fcm.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // ✅ 전역 모듈로 등록
-      envFilePath: '.env',
+      envFilePath: '.env.development',
     }),
 
     TypeOrmModule.forRoot({

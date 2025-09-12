@@ -21,7 +21,10 @@ const CATEGORY_FALLBACKS: number[] = [50000, 20000, 40000];
 export class MarketService {
   private readonly logger = new Logger(MarketService.name);
   private readonly BASE_URL = 'https://developer-lostark.game.onstove.com/markets/items';
+  private readonly CATEGORY_URL = 'https://developer-lostark.game.onstove.com/markets/options';
   private readonly TOKEN: string;
+  private categoriesCache: any | null = null;
+  private categoriesFetchedAt: number | null = null;
 
   constructor(
     private readonly http: HttpService,
@@ -30,6 +33,37 @@ export class MarketService {
     const apiKey = this.configService.get<string>('LOSTARK_API_KEY');
     if (!apiKey) throw new Error('LOSTARK_API_KEY is not defined in environment variables');
     this.TOKEN = apiKey;
+  }
+
+  // ✅ 카테고리 캐싱 메서드
+  async getCategories(force = false) {
+    const now = Date.now();
+    // 캐시가 있고, 24시간 내에 불러온 거라면 그대로 사용
+    if (
+      !force &&
+      this.categoriesCache &&
+      this.categoriesFetchedAt &&
+      now - this.categoriesFetchedAt < 24 * 60 * 60 * 1000
+    ) {
+      this.logger.debug('📦 Using cached market categories');
+      return this.categoriesCache;
+    }
+
+    this.logger.debug('📡 Fetching market categories from API...');
+    const res = await lastValueFrom(
+      this.http.get(this.CATEGORY_URL, {
+        headers: {
+          Authorization: `bearer ${this.TOKEN}`,
+          Accept: 'application/json',
+        },
+        timeout: 5000,
+      }),
+    );
+
+    this.categoriesCache = res.data;
+    this.categoriesFetchedAt = now;
+    this.logger.debug('✅ Market categories cached');
+    return this.categoriesCache;
   }
 
   async search(dto: MarketSearchDto) {

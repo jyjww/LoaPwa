@@ -10,6 +10,7 @@ import { CategoryEtcOptions } from '@/constants/etcOptions';
 import EtcOptionsFilter from '@/components/pages/EtcOptionsFilter';
 import { searchAuctions } from '@/services/auction.dto';
 import { addFavorite } from '@/services/favorites/favorites.service';
+import { makeMatchKey } from '@shared/utils/matchAuctionKey';
 
 const AuctionHouse = () => {
   const [filters, setFilters] = useState({
@@ -65,32 +66,7 @@ const AuctionHouse = () => {
   const handleChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, pageNo: 1 }));
   };
-  /*
-  // pageNo 변경될 때 API 호출 (단, isSearching이 true일 때만)
-  useEffect(() => {
-    if (isSearching) {
-      handleSearch(filters.pageNo === 1);
-    }
-  }, [filters.pageNo, isSearching]);
 
-  // 무한 스크롤 옵저버
-  useEffect(() => {
-    if (!loaderRef.current) return;
-    const target = loaderRef.current;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loading && hasMore) {
-          setFilters((prev) => ({ ...prev, pageNo: (prev.pageNo as number) + 1 }));
-        }
-      },
-      { threshold: 1 },
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [loading, hasMore]);
-*/
   // pageNo 변경될 때 API 호출
   useEffect(() => {
     if (!isSearching) return;
@@ -128,6 +104,7 @@ const AuctionHouse = () => {
     });
   }, [results, filters]);
 
+  /*
   const handleAddFavorite = async (item: any) => {
     try {
       const saved = await addFavorite({
@@ -149,6 +126,39 @@ const AuctionHouse = () => {
       console.error('즐겨찾기 저장 실패:', err);
       alert('로그인이 필요합니다.');
     }
+  };
+  */
+
+  const handleAddFavorite = async (item: any) => {
+    const matchKey = makeMatchKey(
+      'auction',
+      {
+        name: item.name,
+        grade: item.grade,
+        tier: item.tier,
+        quality: item.quality,
+        options: item.options, // [{name, value}]
+      },
+      // 화면/카테고리 선택값으로 매핑해서 넘김: 'stone' | 'accessory' | 'gem' | ...
+      item.name.includes('비상의 돌') ? 'stone' : 'accessory',
+    );
+
+    console.log('[addFavorite] matchKey=', matchKey);
+
+    await addFavorite({
+      source: 'auction',
+      itemId: item.id ?? undefined, // 경매장 고유 id가 없으면 null 허용
+      matchKey, // 👈 새 필드
+      name: item.name,
+      grade: item.grade,
+      tier: item.tier,
+      icon: item.icon,
+      quality: item.quality,
+      currentPrice: item.currentPrice,
+      previousPrice: item.previousPrice,
+      auctionInfo: item.auctionInfo,
+      options: item.options,
+    });
   };
 
   return (

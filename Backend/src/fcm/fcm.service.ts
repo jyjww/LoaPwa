@@ -39,14 +39,31 @@ export class FcmService {
       }
 
       for (const tokenEntity of user.fcmTokens) {
-        await admin.messaging().send({
-          token: tokenEntity.token,
-          notification: { title: message.title, body: message.body },
-        });
-        this.logger.log(`✅ FCM 알림 전송 성공: ${message.title}, token=${tokenEntity.token}`);
+        try {
+          await admin.messaging().send({
+            token: tokenEntity.token,
+            notification: {
+              title: message.title,
+              body: message.body,
+            },
+            data: {
+              url: '/favorites', // 👈 클릭 시 열릴 페이지
+              type: 'ALERT', // 👈 커스텀 이벤트 타입
+              userId: message.userId, // 👈 유저 ID 전달
+            },
+          });
+          this.logger.log(`✅ FCM 알림 전송 성공: ${message.title}, token=${tokenEntity.token}`);
+        } catch (error: any) {
+          if (error.code === 'messaging/registration-token-not-registered') {
+            await this.unregisterToken(tokenEntity.token);
+            this.logger.warn(`🗑️ 만료된 토큰 삭제: ${tokenEntity.token}`);
+          } else {
+            this.logger.error(`❌ FCM 전송 실패: token=${tokenEntity.token}`, error);
+          }
+        }
       }
     } catch (error) {
-      this.logger.error('❌ FCM 전송 실패', error);
+      this.logger.error('❌ sendPush 실행 실패', error);
     }
   }
 
@@ -56,7 +73,10 @@ export class FcmService {
     if (!user) throw new Error('User not found');
 
     const exists = await this.fcmRepo.findOne({ where: { token } });
-    if (exists) return exists;
+    if (exists) {
+      exists.user = user; // 혹시 소유자 바뀌면 갱신
+      return this.fcmRepo.save(exists);
+    }
 
     const fcmToken = this.fcmRepo.create({ user, token });
     return this.fcmRepo.save(fcmToken);
