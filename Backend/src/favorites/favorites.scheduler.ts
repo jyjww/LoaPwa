@@ -6,6 +6,7 @@ import { Favorite } from '@/favorites/entities/favorite.entity';
 import { FavoritesService } from './favorite.service';
 import { MarketService } from '@/markets/market.service';
 import { AuctionService } from '@/auctions/auction.service';
+import { makeMatchKey } from '@shared/utils/matchAuctionKey';
 
 type MarketInfoFlat = {
   currentMinPrice?: number;
