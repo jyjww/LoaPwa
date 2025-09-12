@@ -26,13 +26,17 @@ type Snapshot = {
 export class FavoritesScheduler {
   private readonly logger = new Logger(FavoritesScheduler.name);
 
+  // ✅ 클래스 레벨 캐시 (앱 살아 있는 동안 유지)
+  // TODO : 서버 메모리 부족 시, LRU/TTL 방식 고려
+  private cache = new Map<string, Snapshot>();
+
   constructor(
     private readonly favoritesService: FavoritesService,
     private readonly marketService: MarketService,
     private readonly auctionService: AuctionService,
   ) {}
 
-  @Cron('*/5 * * * *')
+  @Cron('*/1 * * * *')
   async handleCron(): Promise<void> {
     const runId = Date.now().toString(36);
     this.logger.log(`🔔 [${runId}] FavoritesScheduler 실행`);
@@ -64,7 +68,6 @@ export class FavoritesScheduler {
     }
 
     const limit = pLimit(5);
-    const cache = new Map<string, Snapshot>();
 
     const tasks = Object.entries(groups).map(([key, favs]) =>
       limit(async () => {
@@ -78,7 +81,7 @@ export class FavoritesScheduler {
             `➡️  [${runId}] fetch ${source}:${itemId} name="${name}" (group=${groupSize})`,
           );
 
-          let snapshot = cache.get(key);
+          let snapshot = this.cache.get(key);
           if (!snapshot) {
             const t0 = Date.now();
 
@@ -127,7 +130,7 @@ export class FavoritesScheduler {
               return;
             }
 
-            cache.set(key, snapshot);
+            this.cache.set(key, snapshot);
             this.logger.debug(
               `✅ [${runId}] snapshot for ${key}: current=${snapshot.currentPrice}, prev=${snapshot.previousPrice ?? 'null'}`,
             );

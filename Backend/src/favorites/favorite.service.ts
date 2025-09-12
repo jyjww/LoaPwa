@@ -8,6 +8,7 @@ import { User } from '@/auth/entities/user.entity';
 import { CreateFavoriteDto } from './dto/create-favorite.dto';
 import { shouldTriggerAlert, type AlertCandidate } from '@/favorites/alert.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class FavoritesService {
@@ -66,9 +67,51 @@ export class FavoritesService {
       // normalizedPreviousPrice는 undefined 그대로 두기
     }
 
+    function norm(s: unknown) {
+      return String(s ?? '')
+        .normalize('NFKC')
+        .trim()
+        .replace(/\s+/g, ' ');
+    }
+    function buildAuctionMatchKeyLike(dto: {
+      name?: string;
+      grade?: string;
+      tier?: number;
+      options?: Array<{ name: string; value: number }>;
+    }) {
+      const base = [
+        'v1',
+        `name=${norm(dto.name)}`,
+        `grade=${norm(dto.grade)}`,
+        `tier=${dto.tier ?? ''}`,
+        `opts=${(dto.options ?? [])
+          .map((o) => `${norm(o.name)}=${o.value}`)
+          .sort()
+          .join('|')}`,
+      ].join('|');
+      return 'auc:' + createHash('sha1').update(base).digest('base64url').slice(0, 16);
+    }
+
+    const matchKey =
+      dto.matchKey ??
+      (dto.source === 'auction'
+        ? buildAuctionMatchKeyLike({
+            name: dto.name,
+            grade: dto.grade,
+            tier: dto.tier,
+            options: (dto.options ?? []).map((o) => ({ name: o.name, value: o.value })),
+          })
+        : typeof dto.itemId === 'number'
+          ? `mkt:${dto.itemId}`
+          : undefined);
+
     const favorite = this.favoriteRepo.create({
       user, // User는 NotNull 보장
       source: dto.source,
+
+      // 식별자
+      itemId: dto.itemId ?? undefined,
+      matchKey: matchKey,
 
       name: dto.name,
       grade: dto.grade,
@@ -83,7 +126,6 @@ export class FavoritesService {
       auctionInfo: dto.auctionInfo ?? undefined,
       options: dto.options ?? undefined,
 
-      itemId: dto.itemId ?? undefined,
       marketInfo: dto.marketInfo ?? undefined,
 
       targetPrice: dto.targetPrice ?? normalizedCurrentPrice ?? 0,
