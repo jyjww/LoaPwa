@@ -13,16 +13,26 @@ const Header = () => {
     setIsLoggedIn(!!token); // 토큰 있으면 로그인 상태
   }, []);
 
-  const handleLoginClick = () => {
+  const handleLoginClick = async () => {
     if (isLoggedIn) {
       const confirmLogout = window.confirm('로그아웃 하시겠습니까?');
       if (confirmLogout) {
+        try {
+          await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include', // ✅ refresh_token 쿠키 보내기 필수
+          });
+        } catch (err) {
+          console.error('로그아웃 요청 실패:', err);
+        }
+
         localStorage.removeItem('access_token');
-        setTimeout(() => navigate('/'), 0);
+        setIsLoggedIn(false);
+        navigate('/');
         alert('로그아웃 되었습니다.');
       }
     } else {
-      navigate('/login'); // ✅ 로그인 안돼있으면 로그인 페이지
+      navigate('/login');
     }
   };
 
