@@ -32,6 +32,26 @@ if (import.meta.env.MODE === 'development' && 'serviceWorker' in navigator) {
 }
 */
 
+if ('serviceWorker' in navigator) {
+  if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_SW_DEV === 'true') {
+    // 기존 등록물/캐시를 깨끗이 (한 번만)
+    navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
+    caches?.keys?.().then((keys) => keys.forEach((k) => caches.delete(k)));
+
+    // 🔹 dev 전용 SW 등록 (푸시만, 캐싱/Fetch 핸들러 없음)
+    navigator.serviceWorker
+      .register('/sw-dev.js', { scope: '/push/' })
+      .then((reg) => console.log('DEV SW registered:', reg.scope))
+      .catch((err) => console.error('DEV SW register error', err));
+  } else if (import.meta.env.PROD) {
+    // 🔹 프로덕션에서만 캐싱 포함 SW
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => console.log('SW registered:', reg.scope))
+      .catch((err) => console.error('SW register error', err));
+  }
+}
+
 window.addEventListener('DOMContentLoaded', checkPWAInstall);
 
 // React App 렌더링

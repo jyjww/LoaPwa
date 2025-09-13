@@ -127,20 +127,26 @@ const AuctionHouse = () => {
 
     console.log('[addFavorite] matchKey=', matchKey);
 
-    await addFavorite({
-      source: 'auction',
-      itemId: item.id ?? undefined, // 경매장 고유 id가 없으면 null 허용
-      matchKey, // 👈 새 필드
-      name: item.name,
-      grade: item.grade,
-      tier: item.tier,
-      icon: item.icon,
-      quality: item.quality,
-      currentPrice: item.currentPrice,
-      previousPrice: item.previousPrice,
-      auctionInfo: item.auctionInfo,
-      options: item.options,
-    });
+    try {
+      await addFavorite({
+        source: 'auction',
+        itemId: item.id ?? undefined, // 경매장 고유 id가 없으면 null 허용
+        matchKey, // 👈 새 필드
+        name: item.name,
+        grade: item.grade,
+        tier: item.tier,
+        icon: item.icon,
+        quality: item.quality,
+        currentPrice: item.currentPrice,
+        previousPrice: item.previousPrice,
+        auctionInfo: item.auctionInfo,
+        options: item.options,
+      });
+      alert('즐겨찾기에 추가되었습니다!');
+    } catch (err) {
+      console.error('즐겨찾기 저장 실패:', err);
+      alert('로그인이 필요합니다.');
+    }
   };
 
   return (
