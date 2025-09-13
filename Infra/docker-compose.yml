@@ -20,8 +20,8 @@ services:
 
   server:
     build:
-      context: ../Backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: Backend/Dockerfile
     container_name: loa-server
     command: npm run start:dev
     ports:
@@ -36,8 +36,9 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ../Backend:/app
-      - /app/node_modules
+      - ../Backend:/app/Backend
+      - ../shared:/app/Backend/shared
+      - /app/Backend/node_modules
     networks: [app]
 
   frontend:
@@ -56,7 +57,8 @@ services:
       VITE_HMR_PORT: 5173
     volumes:
       - ../PwaFrontend:/app
-      - /app/node_modules
+      - ../shared:/app/PwaFrontend/shared
+      # - /app/PwaFrontend/node_modules
     depends_on:
       - server
     networks: [app]

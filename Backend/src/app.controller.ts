@@ -1,9 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
+import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
-  constructor(private health: HealthCheckService) {}
+  constructor(
+    private health: HealthCheckService,
+    private readonly appService: AppService,
+  ) {}
 
   @Get('health')
   @HealthCheck()
@@ -13,6 +17,6 @@ export class AppController {
 
   @Get()
   getHello(): string {
-    return 'Hello World!';
+    return this.appService.getHello();
   }
 }

@@ -6,6 +6,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { AuctionModule } from './auctions/auction.module';
 import { MarketModule } from './markets/market.module';
 import { AuthModule } from './auth/auth.module';
@@ -37,5 +38,6 @@ import { FcmModule } from './fcm/fcm.module';
     FcmModule,
   ],
   controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

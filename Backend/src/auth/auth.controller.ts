@@ -47,6 +47,8 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
+    console.log("redirect to:", `${process.env.FRONTEND_URL}/login/success?accessToken=${accessToken}`);
+
     return res.redirect(`${process.env.FRONTEND_URL}/login/success?accessToken=${accessToken}`);
   }
 
@@ -82,7 +84,6 @@ export class AuthController {
     // if (!refreshToken) throw new UnauthorizedException();
 
     if (!refreshToken) {
-      console.error('❌ no refresh token in cookie');
       return res.status(401).json({ message: 'No refresh token' });
     }
     try {
@@ -107,5 +108,17 @@ export class AuthController {
     } catch (e) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  @Post('logout')
+  async logout(@Res() res: Response) {
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/', // refresh_token을 발급할 때 설정했던 path와 동일해야 함
+    });
+
+    return res.json({ message: '로그아웃 완료' });
   }
 }

@@ -37,7 +37,7 @@ export class FavoritesScheduler {
     private readonly auctionService: AuctionService,
   ) {}
 
-  @Cron('*/1 * * * *')
+  @Cron('*/30 * * * *')
   async handleCron(): Promise<void> {
     const runId = Date.now().toString(36);
     this.logger.log(`🔔 [${runId}] FavoritesScheduler 실행`);

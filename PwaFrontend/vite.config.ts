@@ -15,12 +15,13 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        '@shared': path.resolve(__dirname, '../shared')
+        '@shared': path.resolve(__dirname, '../shared'),
       },
     },
     server: {
       host: '0.0.0.0',
       port: 5173,
+      historyApiFallback: true,
       hmr: {
         host: HMR_HOST,
         port: HMR_PORT,
