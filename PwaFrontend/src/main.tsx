@@ -14,6 +14,7 @@ const checkPWAInstall = () => {
 };
 
 // PWA: 서비스 워커 등록 (prod에서만)
+/*
 if (import.meta.env.MODE === 'development' && 'serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
@@ -29,6 +30,7 @@ if (import.meta.env.MODE === 'development' && 'serviceWorker' in navigator) {
     }
   });
 }
+*/
 
 window.addEventListener('DOMContentLoaded', checkPWAInstall);
 

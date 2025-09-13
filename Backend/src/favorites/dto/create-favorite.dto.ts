@@ -1,18 +1,28 @@
 // src/favorites/dto/create-favorite.dto.ts
-import { IsArray, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+  ValidateIf,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export class CreateFavoriteDto {
   @IsEnum(['auction', 'market'] as const)
   source: 'auction' | 'market';
 
-  // 식별자
-  @IsOptional()
+  // market일 때만 숫자 itemId 검사 (필수로 만들려면 @IsDefined 추가)
+  @ValidateIf((o) => o.source === 'market')
   @Type(() => Number)
   @Transform(({ value }) => (value === null ? undefined : value))
   @IsNumber()
-  itemId?: number | null;
+  itemId?: number;
 
+  // auction일 때만 matchKey 문자열 검사 (없어도 됨: 서버가 폴백 생성)
+  @ValidateIf((o) => o.source === 'auction')
   @IsOptional()
   @IsString()
   matchKey?: string;

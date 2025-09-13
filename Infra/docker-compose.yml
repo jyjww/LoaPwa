@@ -52,13 +52,15 @@ services:
     env_file:
       - ../PwaFrontend/.env.development
     environment:
-      NODE_ENV: development
-      VITE_HMR_HOST: localhost
+      VITE_HMR_HOST: host.docker.internal # Docker 내부에서 호스트 머신을 가리키는 주소
       VITE_HMR_PORT: 5173
+      CHOKIDAR_USEPOLLING: 'true'
+      CHOKIDAR_INTERVAL: '200'
     volumes:
       - ../PwaFrontend:/app
-      - ../shared:/app/PwaFrontend/shared
-      # - /app/PwaFrontend/node_modules
+      - ../shared:/app/shared
+      - ../tsconfig.base.json:/tsconfig.base.json:ro
+      - /app/node_modules
     depends_on:
       - server
     networks: [app]

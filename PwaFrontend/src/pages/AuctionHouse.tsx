@@ -10,7 +10,7 @@ import { CategoryEtcOptions } from '@/constants/etcOptions';
 import EtcOptionsFilter from '@/components/pages/EtcOptionsFilter';
 import { searchAuctions } from '@/services/auction.dto';
 import { addFavorite } from '@/services/favorites/favorites.service';
-import { makeMatchKey } from '@shared/utils/matchAuctionKey';
+import { makeAuctionKey, type CategoryKey } from '@shared/utils/matchAuctionKey';
 
 const AuctionHouse = () => {
   const [filters, setFilters] = useState({
@@ -104,43 +104,25 @@ const AuctionHouse = () => {
     });
   }, [results, filters]);
 
-  /*
-  const handleAddFavorite = async (item: any) => {
-    try {
-      const saved = await addFavorite({
-        source: 'auction', // ✅ Auction 전용
-        itemId: item.id,
-        name: item.name,
-        grade: item.grade,
-        tier: item.tier,
-        icon: item.icon,
-        quality: item.quality,
-        currentPrice: item.currentPrice,
-        previousPrice: item.previousPrice,
-        auctionInfo: item.auctionInfo,
-        options: item.options,
-      });
-      console.log('즐겨찾기 저장 성공:', saved);
-      alert('즐겨찾기에 추가되었습니다!');
-    } catch (err) {
-      console.error('즐겨찾기 저장 실패:', err);
-      alert('로그인이 필요합니다.');
-    }
+  const classifyAuctionCategory = (item: any): CategoryKey => {
+    if (item.name.includes('비상의 돌')) return 'stone';
+    if (/멸화|홍염/.test(item.name)) return 'gem';
+    if (Array.isArray(item.options) && item.quality != null) return 'accessory';
+    return 'generic';
   };
-  */
 
   const handleAddFavorite = async (item: any) => {
-    const matchKey = makeMatchKey(
-      'auction',
+    const category = classifyAuctionCategory(item);
+
+    const matchKey = makeAuctionKey(
       {
         name: item.name,
         grade: item.grade,
         tier: item.tier,
-        quality: item.quality,
-        options: item.options, // [{name, value}]
+        quality: item.quality ?? null,
+        options: item.options,
       },
-      // 화면/카테고리 선택값으로 매핑해서 넘김: 'stone' | 'accessory' | 'gem' | ...
-      item.name.includes('비상의 돌') ? 'stone' : 'accessory',
+      category,
     );
 
     console.log('[addFavorite] matchKey=', matchKey);
@@ -170,7 +152,7 @@ const AuctionHouse = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5 text-primary" />
-              경매장 검색 (Auction)
+              경매장 검색 (Auction)ggg
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
