@@ -46,6 +46,33 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
+      - name: Write env file for Cloud Run
+        run: |
+          API_URL="https://${SERVICE}-${REGION}-a.run.app"
+          GOOGLE_CALLBACK_URL="${API_URL}/auth/google/callback"
+          cat > env.deploy <<EOF
+          NODE_ENV=production
+          FRONTEND_URL=https://loapwa-d0c74.web.app
+          API_URL=${API_URL}
+          CORS_ORIGIN=https://loapwa-d0c74.web.app
+
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+
+          LOSTARK_API_KEY=${{ secrets.LOSTARK_API_KEY }}
+
+          DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE}
+          DB_PORT=5432
+          DB_NAME=loadb
+          DB_USER=yzroot
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          FCM_PROJECT_ID=${{ secrets.FCM_PROJECT_ID }}
+          FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }}
+          FCM_PRIVATE_KEY=${{ secrets.FCM_PRIVATE_KEY }}
+          EOF
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \
@@ -55,5 +82,6 @@ jobs:
             --min-instances=1 \
             --max-instances=10 \
             --concurrency=80 \
+            --timeout=300 \
             --add-cloudsql-instances "${PROJECT_ID}:${REGION}:${SQL_INSTANCE}" \
-            --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=https://${SERVICE}-${REGION}-a.run.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},GOOGLE_CALLBACK_URL=https://${SERVICE}-${REGION}-a.run.app/auth/google/callback,DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE},DB_HOST=127.0.0.1,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,DB_PASSWORD=${{ secrets.DB_PASSWORD }},LOSTARK_API_KEY=${{ secrets.LOSTARK_API_KEY }},FCM_PROJECT_ID=${{ secrets.FCM_PROJECT_ID }},FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},FCM_PRIVATE_KEY=${{ secrets.FCM_PRIVATE_KEY }}"
+            --env-vars-file env.deploy
