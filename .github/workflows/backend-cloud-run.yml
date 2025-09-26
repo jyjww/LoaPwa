@@ -58,9 +58,9 @@ jobs:
 
           cat > env.deploy.yaml <<EOF
           NODE_ENV: "production"
-          FRONTEND_URL: "https://***.web.app"
+          FRONTEND_URL: "https://loapwa-d0c74.web.app"
           API_URL: "${API_URL}"
-          CORS_ORIGIN: "https://***.web.app"
+          CORS_ORIGIN: "https://loapwa-d0c74.web.app"
 
           GOOGLE_CLIENT_ID: "${{ secrets.GOOGLE_CLIENT_ID }}"
           GOOGLE_CLIENT_SECRET: "${{ secrets.GOOGLE_CLIENT_SECRET }}"
