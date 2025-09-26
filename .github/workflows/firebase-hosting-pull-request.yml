@@ -20,6 +20,8 @@ jobs:
 
       - name: Build (PwaFrontend)
         working-directory: PwaFrontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
           npm ci
           npm run build
