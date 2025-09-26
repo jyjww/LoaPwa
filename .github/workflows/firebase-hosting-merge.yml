@@ -24,11 +24,12 @@ jobs:
           npm run build
 
       - name: Deploy to Firebase (Live)
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: FirebaseExtended/action-hosting-deploy@v1
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: 'live'
           projectId: '${{ secrets.FIREBASE_PROJECT_ID }}'
+          entryPoint: ./PwaFrontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
