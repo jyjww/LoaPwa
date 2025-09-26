@@ -56,4 +56,5 @@ jobs:
             --max-instances=10 \
             --concurrency=80 \
             --add-cloudsql-instances "${PROJECT_ID}:${REGION}:${SQL_INSTANCE}" \
+            --remove-env-vars DATABASE_URL \
             --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=https://${SERVICE}-${REGION}-a.run.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},GOOGLE_CALLBACK_URL=https://${SERVICE}-${REGION}-a.run.app/auth/google/callback,DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
