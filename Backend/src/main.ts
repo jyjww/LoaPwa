@@ -19,7 +19,8 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  const port = Number(process.env.PORT) || 4000;
+  const port = Number(process.env.PORT) || 8080;
+  console.log(`[DEBUG] Final Port is: ${port}`);
   await app.listen(port, '0.0.0.0');
   console.log(`[bootstrap] listening on ${port}`);
 }
