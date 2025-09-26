@@ -22,57 +22,70 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 1) GCP OIDC 인증
       - name: Auth to GCP
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDP }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
 
+      # 2) Artifact Registry 로그인
       - name: Configure Docker to Artifact Registry
         run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" -q
 
+      # 3) 이미지 경로 계산
       - name: Compute IMAGE tag
         run: |
           echo "IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE }}" >> $GITHUB_ENV
 
-      # ✅ 백엔드 폴더에서 빌드/푸시
+      # 4) 백엔드 이미지 빌드 & 푸시 (컨텍스트=루트, prod Dockerfile 사용)
       - name: Build & Push Image
         run: |
           docker build -f Backend/Dockerfile.prod -t "$IMAGE:${{ github.sha }}" .
           docker push "$IMAGE:${{ github.sha }}"
 
+      # 5) gcloud 준비
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
+      # 6) Cloud Run용 환경변수 YAML 생성 (쉼표/줄바꿈 안전)
       - name: Write env file for Cloud Run
         run: |
           API_URL="https://${SERVICE}-${REGION}-a.run.app"
           GOOGLE_CALLBACK_URL="${API_URL}/auth/google/callback"
-          cat > env.deploy <<EOF
-          NODE_ENV=production
-          FRONTEND_URL=https://loapwa-d0c74.web.app
-          API_URL=${API_URL}
-          CORS_ORIGIN=https://loapwa-d0c74.web.app
 
-          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+          cat > env.deploy.yaml <<EOF
+          NODE_ENV: "production"
+          FRONTEND_URL: "https://***.web.app"
+          API_URL: "${API_URL}"
+          CORS_ORIGIN: "https://***.web.app"
 
-          LOSTARK_API_KEY=${{ secrets.LOSTARK_API_KEY }}
+          GOOGLE_CLIENT_ID: "${{ secrets.GOOGLE_CLIENT_ID }}"
+          GOOGLE_CLIENT_SECRET: "${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          GOOGLE_CALLBACK_URL: "${GOOGLE_CALLBACK_URL}"
 
-          DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE}
-          DB_PORT=5432
-          DB_NAME=loadb
-          DB_USER=yzroot
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          LOSTARK_API_KEY: "${{ secrets.LOSTARK_API_KEY }}"
 
-          FCM_PROJECT_ID=${{ secrets.FCM_PROJECT_ID }}
-          FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }}
-          FCM_PRIVATE_KEY=${{ secrets.FCM_PRIVATE_KEY }}
+          DB_HOST: "/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE}"
+          DB_PORT: "5432"
+          DB_NAME: "loadb"
+          DB_USER: "yzroot"
+          DB_PASSWORD: "${{ secrets.DB_PASSWORD }}"
+
+          FCM_PROJECT_ID: "${{ secrets.FCM_PROJECT_ID }}"
+          FCM_CLIENT_EMAIL: "${{ secrets.FCM_CLIENT_EMAIL }}"
+          # 줄바꿈은 시크릿에 \n로 저장하고 코드에서 replace(/\\n/g, '\n') 처리
+          FCM_PRIVATE_KEY: "${{ secrets.FCM_PRIVATE_KEY }}"
           EOF
 
+          # 들여쓰기 제거 (위 heredoc 들여쓰기를 정리)
+          sed -i.bak 's/^[[:space:]]\{10\}//' env.deploy.yaml && rm -f env.deploy.yaml.bak
+          echo "=== env.deploy.yaml ==="
+          cat env.deploy.yaml
+
+      # 7) 배포
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \
@@ -84,4 +97,4 @@ jobs:
             --concurrency=80 \
             --timeout=300 \
             --add-cloudsql-instances "${PROJECT_ID}:${REGION}:${SQL_INSTANCE}" \
-            --env-vars-file env.deploy
+            --env-vars-file env.deploy.yaml
