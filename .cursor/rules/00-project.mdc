@@ -1,0 +1,141 @@
+---
+alwaysApply: true
+---
+## 🧭 Project Overview
+
+- Stack: **React 19 + Vite + Tailwind v4**, **NestJS + TypeScript + TypeORM**, 공용 타입/스키마는 **`../shared`**.
+- 경로 규칙: 프론트/백 모두 **`@/*`**와 **`@shared/*`**만 사용. 상대경로 난립 금지.
+- 공용 계약: API 응답은 가능하면 아래 형태를 기준으로 유지:
+
+{ "success": boolean, "data"?: T, "error"?: { "code": string, "message": string } }
+
+---
+
+## 🎨 Frontend Rules (React + Vite + Tailwind)
+
+### Imports & Paths
+
+- 오직 `@/*`(= `src/*`), `@shared/*`(= `../shared/*`)만 사용.
+- tsconfig/vite alias/환경설정은 **절대 수정하지 않음**.
+
+### State & Data
+
+- 서버 상태: **@tanstack/react-query v5** (쿼리키 배열, 에러/로딩/빈상태 처리 필수)
+- 폼: **react-hook-form + zod** (`zodResolver` 권장)
+- 전역 상태 추가 도입 금지(현 구성 유지)
+
+### API / axios
+
+- `src/lib/axios.ts` 인스턴스 1곳에서 baseURL/인터셉터/타임아웃/에러 매핑
+- 인증 토큰 주입은 **요청 인터셉터**에서만
+
+### UI/Style
+
+- Tailwind v4 우선, 인라인 스타일 지양
+- 접근성: 포커스/키보드 내비게이션/aria 고려
+
+### 라우팅/구조
+
+src/
+app/ # 루트/프로바이더
+features/FeatureX/ # (컴포넌트+hooks+api+schema) 모듈 단위
+components/ # 공용 UI
+lib/ # axios, queryClient, 유틸
+types/ # 프론트 전용 타입 (공용은 @shared)
+
+### 성능
+
+- 리스트 key 안정성, 필요한 경우 가상화
+- 이미지/영상: width/height 명시, 지연 로딩
+- 메모이제이션은 **측정 후** 적용
+
+### 테스트
+
+- React Testing Library
+- 네트워크는 msw로 모킹
+
+---
+
+## 🧰 Backend Rules (NestJS + TypeORM)
+
+### Imports & Paths
+
+- `@/*`(= `src/*`), `@shared/*`(= `../shared/*`)만 사용
+- backend tsconfig **baseUrl/paths 절대 변경 금지**
+
+### 아키텍처 경계
+
+- **Controller**: 인증/인가/DTO 변환·검증, 얇게
+- **Service**: 비즈니스 규칙/트랜잭션
+- **Repository**: 영속성 접근
+- 순환 의존 금지, cross-module 접근은 명시적 provider export/import
+
+### DTO/Validation
+
+- 클래스 기반 DTO + `class-validator`/`class-transformer`
+- 공용 스키마/타입은 `@shared`, 서버 DTO와 호환 유지
+
+### TypeORM
+
+- Lazy 지양, 필요한 필드만 select
+- N+1 방지: `leftJoinAndSelect`/QueryBuilder
+- 트랜잭션: `DataSource.transaction()` 또는 `QueryRunner`
+- 운영 `synchronize: false`, 변경 시 **마이그레이션 필수**
+
+### 에러/응답
+
+- 예외 필터/인터셉터로 표준 응답 형태 매핑
+- 내부 메시지는 로그, 클라이언트엔 일반화 메시지
+
+### API 설계
+
+- 페이징 표준: `?page=1&limit=20` → `{ items, totalCount, page, limit }`
+- 정렬/검색 파라미터 화이트리스트
+
+### 로깅/관측
+
+- 요청 단위 trace id로 로그 상관관계
+- 느린 쿼리 임계치 로깅(예: >300ms)
+
+### 테스트
+
+- Unit: 서비스/리포지토리 mocking
+- E2E: TestApp + Supertest, 테스트 전용 DB/스키마
+
+---
+
+## 🧩 Shared Contracts
+
+- 공용 타입/상수/스키마는 **`../shared`**에만 위치
+- 프론트/백은 서로 직접 참조 금지(공용은 오직 `@shared` 경유)
+
+---
+
+## 🔐 Security
+
+- 비밀키/env 하드코딩 금지 (키 이름만 문서화)
+- 인증 토큰 파싱/검증은 Guard/미들웨어에서 처리
+- 업로드: 확장자/용량/MIME 서버단 재검증, S3 presigned URL 사용 시 키 네임스페이스 고정
+
+---
+
+## ✅ AI Output Format (반드시 이 순서)
+
+1. **Changes** — 의도/영향/엣지케이스 요약
+2. **Patch** — 파일별 최소 범위 변경 코드 블록
+3. **Tests** — 추가/수정 테스트 시나리오
+4. **Run** — 로컬에서 검증하는 방법
+
+- 마지막 줄에 **“경로/별칭/빌드설정을 수정하지 않음”**을 명시
+
+---
+
+## 🔎 AI 작업 체크리스트
+
+- [ ] import는 `@/`, `@shared/`만 사용했는가? (상대경로 난립 금지)
+- [ ] tsconfig/vite/패키지 스크립트는 **수정하지 않았는가?**
+- [ ] 프론트: React Query 에러/로딩/빈상태 처리했는가?
+- [ ] 백엔드: Controller는 얇고, Service/Repository 경계를 지켰는가?
+- [ ] TypeORM에서 N+1을 방지했는가?
+- [ ] 응답을 표준 형태로 매핑했는가?
+- [ ] 민감정보/비밀키를 노출하지 않았는가?
