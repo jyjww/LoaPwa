@@ -64,11 +64,22 @@ jobs:
           set -e
           REV=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.latestCreatedRevisionName)')
           echo "Latest created revision: $REV"
-          echo "---- STDERR (ERROR+ only) ----"
-          gcloud logs read --region="$REGION" --limit=200 \
-            --format='value(textPayload)' \
-            'resource.type="cloud_run_revision" AND resource.labels.service_name="'$SERVICE'" AND resource.labels.revision_name="'$REV'" AND severity>=ERROR'
-          echo "---- STDOUT (last 200 lines) ----"
-          gcloud logs read --region="$REGION" --limit=200 \
-            --format='value(textPayload)' \
-            'resource.type="cloud_run_revision" AND resource.labels.service_name="'$SERVICE'" AND resource.labels.revision_name="'$REV'"'
+
+          echo "---- ERROR & ABOVE ----"
+          gcloud logging read \
+            'resource.type="cloud_run_revision"
+            AND resource.labels.service_name="'$SERVICE'"
+            AND resource.labels.revision_name="'$REV'"
+            AND severity>=ERROR' \
+            --project="$PROJECT_ID" \
+            --limit=200 \
+            --format='value(textPayload)'
+
+          echo "---- LAST 200 LINES (ALL) ----"
+          gcloud logging read \
+            'resource.type="cloud_run_revision"
+            AND resource.labels.service_name="'$SERVICE'"
+            AND resource.labels.revision_name="'$REV'"' \
+            --project="$PROJECT_ID" \
+            --limit=200 \
+            --format='value(textPayload)'
