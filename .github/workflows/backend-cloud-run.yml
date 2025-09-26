@@ -81,7 +81,8 @@ jobs:
 
           GOOGLE_CLOUD_PROJECT: "${PROJECT_ID}"
           GCLOUD_PROJECT: "${PROJECT_ID}"
-          FIREBASE_CONFIG: '{"projectId":"'"${PROJECT_ID}"'"}'
+          FIREBASE_CONFIG: >-
+            {"projectId":"loapwa-d0c74"}
           EOF
 
           # 들여쓰기 제거 (위 heredoc 들여쓰기를 정리)
