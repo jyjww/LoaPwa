@@ -46,6 +46,12 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
+      - name: Clear old env (optional)
+        run: |
+          gcloud run services update "$SERVICE" \
+            --region "$REGION" \
+            --remove-env-vars DATABASE_URL || true
+            
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \
