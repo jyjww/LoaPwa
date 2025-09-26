@@ -33,7 +33,6 @@
  * - 옵션 이름보다 “코드값”을 쓸 수 있으면 더 안전(로캘 독립)함.
  * - 해시 충돌 가능성은 매우 낮지만 0이 아님. 필요 시 더 긴 해시로 교체 가능.
  */
-
 export type EngraveOption = { name: string; value: number | string };
 export type GenericOption = { name: string; value: number | string };
 
@@ -42,159 +41,117 @@ export type AuctionItemMinimal = {
   grade?: string | null;
   tier?: number | null;
   quality?: number | null;
-  options?: GenericOption[]; // 악세/돌: 각인/패널티 등 이름+값
-  auctionInfo?: any; // 필요 시 참조
+  options?: GenericOption[];
 };
 
-export type MarketItemMinimal = {
-  id?: number | null; // 거래소 정식 id
-  name: string;
-  grade?: string | null;
-  tier?: number | null;
-  marketInfo?: any;
-};
+export type CategoryKey = 'accessory' | 'stone' | 'gem' | 'book' | 'material' | 'generic';
 
-export type Source = 'auction' | 'market';
-export type CategoryKey =
-  | 'accessory' // 목걸이/귀걸이/반지
-  | 'stone' // 비상의 돌
-  | 'gem' // 보석 (홍염/멸화)
-  | 'book' // 각인서 등
-  | 'material' // 재료류
-  | 'generic'; // 기타
-
-// --------------- 공통 유틸 ---------------
-const V = 'v1'; // 규칙 바꾸면 v2로 올려서 이전 키와 구분
-
+// ---- 공통 유틸 ----
 const normalize = (s?: string | null) =>
   (s ?? '')
     .normalize('NFKC')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
-    .replace(/[^\p{L}\p{N} _\-:/|.]/gu, ''); // 한글/영숫자/몇몇 구분자만 유지
+    .replace(/[^\p{L}\p{N} _\-:/|.]/gu, '');
 
 const stableOptionsString = (opts?: GenericOption[]) => {
   if (!opts?.length) return '';
-  const normed = opts.map((o) => ({
-    name: normalize(o.name),
-    value: String(o.value),
-  }));
-  normed.sort((a, b) =>
-    a.name === b.name
-      ? a.value < b.value
-        ? -1
-        : a.value > b.value
-        ? 1
-        : 0
-      : a.name < b.name
-      ? -1
-      : 1,
-  );
-  // name=value 조합을 '|'로 이어서 결정적 문자열 생성
+  const normed = opts
+    .map((o) => ({ name: normalize(o.name), value: String(o.value) }))
+    .sort((a, b) =>
+      a.name === b.name ? a.value.localeCompare(b.value) : a.name.localeCompare(b.name),
+    );
   return normed.map((o) => `${o.name}=${o.value}`).join('|');
 };
 
-// 짧은 FNV-1a 32-bit 해시 → 8자리 hex
 export const shortHash = (str: string) => {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
     h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
   }
-  // 32-bit 양수화
   return (h >>> 0).toString(16).padStart(8, '0');
 };
 
-// --------------- 카테고리별 빌더 ---------------
-
-// 1) 거래소: 공식 itemId가 있으면 그걸 최우선으로 사용(가장 강력한 식별자)
-const buildMarketKey = (item: MarketItemMinimal) => {
-  if (item.id != null) return `market:id:${item.id}`; // 이미 유니크
-  // id가 없는 희귀 케이스 대비(안 쓰이길 권장)
-  const body = [
-    `name:${normalize(item.name)}`,
-    item.grade ? `grade:${normalize(item.grade)}` : null,
-    item.tier ? `tier:${item.tier}` : null,
-  ]
-    .filter(Boolean)
-    .join('|');
-  return `market:fallback:${shortHash(body)}`;
-};
-
-// 2) 비상의 돌: 이름은 사실상 고정, 티어 + 각인 2개 + 패널티 1개(값 포함)로 동등성 보장
-const buildStoneKey = (item: AuctionItemMinimal) => {
-  const body = [
-    `tier:${item.tier ?? ''}`,
-    // 이름·등급은 참고용만 포함(선택). 옵션이 결정적 요소.
-    `name:${normalize(item.name)}`,
-    `grade:${normalize(item.grade || '')}`,
-    `opts:${stableOptionsString(item.options)}`,
+// ---- 카테고리 바디 ----
+const bodyStone = (i: AuctionItemMinimal) =>
+  [
+    `tier:${i.tier ?? ''}`,
+    `name:${normalize(i.name)}`,
+    `grade:${normalize(i.grade || '')}`,
+    `opts:${stableOptionsString(i.options)}`,
   ].join('|');
-  return `auction:stone:${shortHash(body)}`;
-};
 
-// 3) 악세사리: 품질/등급/각인(+패널티) 조합이 핵심
-const buildAccessoryKey = (item: AuctionItemMinimal) => {
-  const body = [
-    `tier:${item.tier ?? ''}`,
-    `grade:${normalize(item.grade || '')}`,
-    `quality:${item.quality ?? ''}`, // 0~100
-    `opts:${stableOptionsString(item.options)}`,
+const bodyAccessory = (i: AuctionItemMinimal) =>
+  [
+    `tier:${i.tier ?? ''}`,
+    `grade:${normalize(i.grade || '')}`,
+    `quality:${i.quality ?? ''}`,
+    `opts:${stableOptionsString(i.options)}`,
   ].join('|');
-  return `auction:accessory:${shortHash(body)}`;
-};
 
-// 4) 보석: 네 요구대로 “세부 스킬 무시”하고 유형+티어만
-//   - 이름에 '멸화/홍염'이 들어가니 유형만 추출해서 사용
 const getGemType = (name: string) => {
   const n = normalize(name);
   if (n.includes('멸화')) return '멸화';
   if (n.includes('홍염')) return '홍염';
   return 'unknown';
 };
-const buildGemKey = (item: AuctionItemMinimal) => {
-  const body = [`type:${getGemType(item.name)}`, `tier:${item.tier ?? ''}`].join('|');
-  return `auction:gem:${shortHash(body)}`;
-};
+const bodyGem = (i: AuctionItemMinimal) =>
+  [`type:${getGemType(i.name)}`, `tier:${i.tier ?? ''}`].join('|');
 
-// 5) 각인서/재료/기타: 이름+등급(+티어) 정도로 보수적으로
-const buildGenericAuctionKey = (item: AuctionItemMinimal) => {
-  const body = [
-    `name:${normalize(item.name)}`,
-    `grade:${normalize(item.grade || '')}`,
-    item.tier ? `tier:${item.tier}` : null,
-    item.quality != null ? `quality:${item.quality}` : null,
-    item.options?.length ? `opts:${stableOptionsString(item.options)}` : null,
+const bodyGeneric = (i: AuctionItemMinimal) =>
+  [
+    `name:${normalize(i.name)}`,
+    `grade:${normalize(i.grade || '')}`,
+    i.tier != null ? `tier:${i.tier}` : null,
+    i.quality != null ? `quality:${i.quality}` : null,
+    i.options?.length ? `opts:${stableOptionsString(i.options)}` : null,
   ]
     .filter(Boolean)
     .join('|');
-  return `auction:generic:${shortHash(body)}`;
+
+const builders: Record<CategoryKey, (i: AuctionItemMinimal) => string> = {
+  stone: bodyStone,
+  accessory: bodyAccessory,
+  gem: bodyGem,
+  book: bodyGeneric,
+  material: bodyGeneric,
+  generic: bodyGeneric,
 };
 
-// --------------- 전략 레지스트리 ---------------
-// 필요시 카테고리 매핑은 서버에서 LostArk CategoryCode → 내부 CategoryKey로 변환해서 넘겨주면 깔끔.
-const AuctionKeyBuilders: Record<CategoryKey, (i: AuctionItemMinimal) => string> = {
-  stone: buildStoneKey,
-  accessory: buildAccessoryKey,
-  gem: buildGemKey,
-  book: buildGenericAuctionKey,
-  material: buildGenericAuctionKey,
-  generic: buildGenericAuctionKey,
-};
+// ---- 여기서 guessCategory를 정의 & export ----
+export function guessCategory(item: {
+  name: string;
+  options?: any[];
+  quality?: number | null;
+}): CategoryKey {
+  const name = String(item?.name ?? '')
+    .normalize('NFKC')
+    .toLowerCase();
 
-export function makeMatchKey(
-  source: Source,
-  item: AuctionItemMinimal | MarketItemMinimal,
-  category: CategoryKey = 'generic',
-) {
-  let raw = '';
-  if (source === 'market') {
-    raw = buildMarketKey(item as MarketItemMinimal);
-  } else {
-    const builder = AuctionKeyBuilders[category] || AuctionKeyBuilders.generic;
-    raw = builder(item as AuctionItemMinimal);
-  }
-  // 버전 + 원본 키(디버깅 용이) + 짧은 해시
-  return `${V}|${raw}`;
+  if (/(멸화|홍염)/.test(name)) return 'gem';
+  if (/비상의\s*돌/.test(name)) return 'stone';
+  if (/각인서/.test(name)) return 'book';
+
+  const hasQuality = typeof item?.quality === 'number';
+  const hasOpts = Array.isArray(item?.options) && item.options.length > 0;
+
+  if (hasQuality && hasOpts) return 'accessory';
+  return 'generic';
+}
+
+// ---- makeAuctionKey: category 안 주면 guessCategory로 자동 추정 ----
+export function makeAuctionKey(item: AuctionItemMinimal, category?: CategoryKey) {
+  const cat = category ?? guessCategory(item);
+  const body = (builders[cat] ?? builders.generic)(item);
+  return `auc:${shortHash(body)}`;
+}
+
+// 검사/정규화 유틸
+export const isAuctionMatchKey = (v: unknown): v is string =>
+  typeof v === 'string' && /^auc:[0-9a-f]{8}$/.test(v);
+
+export function normalizeAuctionKey(k: string) {
+  return k;
 }

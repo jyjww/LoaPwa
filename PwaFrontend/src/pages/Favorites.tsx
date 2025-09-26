@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import Navigation from '@/components/Navigation';
 import AuctionItemCard from '@/components/AuctionItemCard';
 import MarketItemCard from '@/components/MarketItemCard';
-import { Star, Bell, Trash2, Edit, ShoppingCart } from 'lucide-react';
+import { Star, Bell, ShoppingCart } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,41 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { fetchFavorites, removeFavorite, updateTargetPrice } from '@/services/favorites/favorites.service';
+import {
+  fetchFavorites,
+  removeFavorite,
+  updateTargetPrice,
+} from '@/services/favorites/favorites.service';
+
+// ---------- 평탄화 어댑터(모듈 스코프) ----------
+const normalizeAuctionFavorite = (f: any) => {
+  if (f?.source !== 'auction') return f;
+
+  const isSnapshot = !!(
+    f?.auctionInfo &&
+    typeof f.auctionInfo === 'object' &&
+    'auctionInfo' in f.auctionInfo
+  );
+  const inner = f?.auctionInfo?.auctionInfo ?? f?.auctionInfo ?? null;
+
+  return {
+    ...f,
+    __fromSnapshot: isSnapshot, // 👈 스냅샷 힌트
+    auctionInfo: inner
+      ? {
+          StartPrice: typeof inner.StartPrice === 'number' ? inner.StartPrice : null,
+          BidStartPrice: typeof inner.BidStartPrice === 'number' ? inner.BidStartPrice : null,
+          BuyPrice: typeof inner.BuyPrice === 'number' ? inner.BuyPrice : null,
+          EndDate: typeof inner.EndDate === 'string' ? inner.EndDate : null,
+        }
+      : undefined,
+    options: Array.isArray(f?.options)
+      ? f.options
+      : Array.isArray(f?.auctionInfo?.options)
+        ? f.auctionInfo.options
+        : [],
+  };
+};
 
 const Favorites = () => {
   const navigate = useNavigate();
@@ -54,8 +88,7 @@ const Favorites = () => {
   const handleSaveTargetPrice = async () => {
     if (editingItem && newTargetPrice) {
       try {
-        const updated = await updateTargetPrice(editingItem.id, parseInt(newTargetPrice));
-
+        const updated = await updateTargetPrice(editingItem.id, parseInt(newTargetPrice, 10));
         setFavorites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       } catch (err) {
         console.error('타겟 가격 수정 실패:', err);
@@ -99,12 +132,13 @@ const Favorites = () => {
                 value={`${
                   Math.round(
                     (favorites.reduce((avg, item) => {
-                      const change = item.previousPrice
-                        ? ((item.currentPrice - item.previousPrice) / item.previousPrice) * 100
-                        : 0;
+                      const change =
+                        item.previousPrice && item.previousPrice > 0
+                          ? ((item.currentPrice - item.previousPrice) / item.previousPrice) * 100
+                          : 0;
                       return avg + change;
                     }, 0) /
-                      favorites.length) *
+                      Math.max(favorites.length, 1)) *
                       10,
                   ) / 10
                 }%`}
@@ -121,8 +155,8 @@ const Favorites = () => {
           alertedItems={getAlertedItems(auctionFavorites)}
           trackedItems={getTrackedItems(auctionFavorites)}
           ItemCard={AuctionItemCard}
-          onEdit={handleEditTargetPrice}
           onRemove={handleRemoveFavorite}
+          onEdit={handleEditTargetPrice}
         />
 
         {/* 거래소 즐겨찾기 */}
@@ -132,8 +166,8 @@ const Favorites = () => {
           alertedItems={getAlertedItems(marketFavorites)}
           trackedItems={getTrackedItems(marketFavorites)}
           ItemCard={MarketItemCard}
-          onEdit={handleEditTargetPrice}
           onRemove={handleRemoveFavorite}
+          onEdit={handleEditTargetPrice}
         />
 
         {favorites.length === 0 && (
@@ -202,16 +236,16 @@ const FavoriteSection = ({
   alertedItems,
   trackedItems,
   ItemCard,
-  onEdit,
   onRemove,
+  onEdit,
 }: {
   label: string;
   icon: React.ReactNode;
   alertedItems: any[];
   trackedItems: any[];
   ItemCard: React.FC<any>;
+  onRemove: (id: string) => void | Promise<void>;
   onEdit: (item: any) => void;
-  onRemove: (id: string) => void;
 }) => (
   <>
     <div className="mb-4 flex items-center gap-2">
@@ -221,69 +255,62 @@ const FavoriteSection = ({
         {alertedItems.length + trackedItems.length} items
       </Badge>
     </div>
+
+    {/* FavoriteSection 컴포넌트 내부 (alerted + tracked 공통 적용) */}
     {alertedItems.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {alertedItems.map((item) => (
-          <ItemCard key={item.id} item={item} isFavorite={true}>
-            <Badge className="bg-gaming-green text-gaming-green-foreground animate-pulse">
-              Alert!
-            </Badge>
-            <FavoriteActions item={item} onEdit={onEdit} onRemove={onRemove} />
-          </ItemCard>
-        ))}
+        {alertedItems.map((raw) => {
+          const item = raw.source === 'auction' ? normalizeAuctionFavorite(raw) : raw;
+
+          console.log(
+            '[FavoriteSection] alerted=',
+            alertedItems.length,
+            'tracked=',
+            trackedItems.length,
+          );
+
+          return (
+            <div key={item.id} className="space-y-2">
+              {item.source === 'auction' ? (
+                <ItemCard item={item} isFavorite />
+              ) : (
+                <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
+                  Edit Target
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
+                  Remove
+                </Button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     )}
 
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-      {trackedItems.map((item) => {
-        if (item.source === 'auction') {
-          // 경매장 아이템이면 AuctionItemCard 사용
-          return (
-            <ItemCard key={item.id} item={item} isFavorite={true}>
-              <FavoriteActions item={item} onEdit={onEdit} onRemove={onRemove} />
-            </ItemCard>
-          );
-        }
-
-        if (item.source === 'market') {
-          // 거래소 아이템이면 MarketItemCard 사용
-          return (
-            <MarketItemCard key={item.id} item={item} isFavorite={true} onFavorite={() => {}} />
-          );
-        }
-
-        return null; // fallback
+      {trackedItems.map((raw) => {
+        const item = raw.source === 'auction' ? normalizeAuctionFavorite(raw) : raw;
+        return (
+          <div key={item.id} className="space-y-2">
+            {item.source === 'auction' ? (
+              <ItemCard item={item} isFavorite />
+            ) : (
+              <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
+                Edit Target
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
+                Remove
+              </Button>
+            </div>
+          </div>
+        );
       })}
     </div>
   </>
-);
-
-const FavoriteActions = ({
-  item,
-  onEdit,
-  onRemove,
-}: {
-  item: any;
-  onEdit: (item: any) => void;
-  onRemove: (id: string) => void;
-}) => (
-  <div className="mt-2 flex items-center justify-between p-2 bg-muted/20 rounded-lg border">
-    <div className="text-sm">
-      <span className="text-muted-foreground">Target: </span>
-      <span className="font-medium">{item.targetPrice.toLocaleString()}G</span>
-    </div>
-    <div className="flex gap-1">
-      <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
-        <Edit className="h-3 w-3" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onRemove(item.id)}
-        className="text-destructive hover:text-destructive"
-      >
-        <Trash2 className="h-3 w-3" />
-      </Button>
-    </div>
-  </div>
 );

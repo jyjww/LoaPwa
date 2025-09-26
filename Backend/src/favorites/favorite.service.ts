@@ -9,6 +9,7 @@ import { CreateFavoriteDto } from './dto/create-favorite.dto';
 import { shouldTriggerAlert, type AlertCandidate } from '@/favorites/alert.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createHash } from 'crypto';
+import { makeAuctionKey, type CategoryKey } from '@shared/utils/matchAuctionKey';
 
 @Injectable()
 export class FavoritesService {
@@ -41,91 +42,60 @@ export class FavoritesService {
    * - 운영 필드: isAlerted / active / (lastCheckedAt, lastNotifiedAt 초기 null)
    */
   async create(userId: string, dto: CreateFavoriteDto) {
-    const id = String(userId);
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) throw new NotFoundException('User not found');
 
-    // null → undefined 정리
-    const safeQuality = dto.quality ?? undefined;
+    // ---------- 공통 정리 ----------
     const safeTier = dto.tier ?? undefined;
+    const safeQuality = dto.quality ?? undefined;
 
-    // source별 표준화 스냅샷
     let normalizedCurrentPrice = dto.currentPrice;
-    let normalizedPreviousPrice = dto.previousPrice; // 그대로 두고 아래에서만 undefined로 조정
+    let normalizedPreviousPrice = dto.previousPrice;
 
     if (dto.source === 'market' && dto.marketInfo) {
-      if (normalizedCurrentPrice == null) {
-        normalizedCurrentPrice = dto.marketInfo.recentPrice ?? dto.marketInfo.currentMinPrice ?? 0;
-      }
-      if (normalizedPreviousPrice == null) {
-        normalizedPreviousPrice = dto.marketInfo.yDayAvgPrice; // number | undefined
-      }
+      normalizedCurrentPrice ??= dto.marketInfo.recentPrice ?? dto.marketInfo.currentMinPrice ?? 0;
+      normalizedPreviousPrice ??= dto.marketInfo.yDayAvgPrice ?? undefined;
+    } else if (dto.source === 'auction') {
+      normalizedCurrentPrice ??= 0;
     }
 
-    if (dto.source === 'auction') {
-      normalizedCurrentPrice = normalizedCurrentPrice ?? 0;
-      // normalizedPreviousPrice는 undefined 그대로 두기
+    // ---------- matchKey 결정(없으면 서버에서 생성) ----------
+    let matchKey = dto.matchKey;
+
+    if (dto.source === 'auction' && !matchKey) {
+      matchKey = makeAuctionKey({
+        name: dto.name,
+        grade: dto.grade,
+        tier: safeTier,
+        quality: safeQuality,
+        options: (dto.options ?? []).map((o) => ({ name: o.name, value: o.value })),
+      });
+      // 결과 예: "auc:1a2b3c4d" (8자리 hex)
+    } else if (dto.source === 'market' && !matchKey && typeof dto.itemId === 'number') {
+      // 선택: 마켓도 통일감 위해 남기고 싶으면 유지
+      matchKey = `mkt:${dto.itemId}`;
     }
 
-    function norm(s: unknown) {
-      return String(s ?? '')
-        .normalize('NFKC')
-        .trim()
-        .replace(/\s+/g, ' ');
-    }
-    function buildAuctionMatchKeyLike(dto: {
-      name?: string;
-      grade?: string;
-      tier?: number;
-      options?: Array<{ name: string; value: number }>;
-    }) {
-      const base = [
-        'v1',
-        `name=${norm(dto.name)}`,
-        `grade=${norm(dto.grade)}`,
-        `tier=${dto.tier ?? ''}`,
-        `opts=${(dto.options ?? [])
-          .map((o) => `${norm(o.name)}=${o.value}`)
-          .sort()
-          .join('|')}`,
-      ].join('|');
-      return 'auc:' + createHash('sha1').update(base).digest('base64url').slice(0, 16);
-    }
-
-    const matchKey =
-      dto.matchKey ??
-      (dto.source === 'auction'
-        ? buildAuctionMatchKeyLike({
-            name: dto.name,
-            grade: dto.grade,
-            tier: dto.tier,
-            options: (dto.options ?? []).map((o) => ({ name: o.name, value: o.value })),
-          })
-        : typeof dto.itemId === 'number'
-          ? `mkt:${dto.itemId}`
-          : undefined);
-
+    // ---------- 엔티티 생성 ----------
     const favorite = this.favoriteRepo.create({
-      user, // User는 NotNull 보장
+      user,
       source: dto.source,
 
-      // 식별자
-      itemId: dto.itemId ?? undefined,
-      matchKey: matchKey,
+      // auction은 matchKey로만 식별, market은 숫자 itemId 유지
+      itemId: dto.source === 'market' && typeof dto.itemId === 'number' ? dto.itemId : undefined,
+      matchKey,
 
       name: dto.name,
       grade: dto.grade,
       icon: dto.icon,
 
       currentPrice: normalizedCurrentPrice!,
-      previousPrice: normalizedPreviousPrice ?? undefined, // ✅ 여기! null 금지
+      previousPrice: normalizedPreviousPrice ?? undefined,
 
-      // 선택 필드들
       tier: safeTier,
       quality: safeQuality,
       auctionInfo: dto.auctionInfo ?? undefined,
       options: dto.options ?? undefined,
-
       marketInfo: dto.marketInfo ?? undefined,
 
       targetPrice: dto.targetPrice ?? normalizedCurrentPrice ?? 0,
