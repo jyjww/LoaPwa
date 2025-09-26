@@ -78,6 +78,10 @@ jobs:
           FCM_CLIENT_EMAIL: "${{ secrets.FCM_CLIENT_EMAIL }}"
           # 줄바꿈은 시크릿에 \n로 저장하고 코드에서 replace(/\\n/g, '\n') 처리
           FCM_PRIVATE_KEY: "${{ secrets.FCM_PRIVATE_KEY }}"
+
+          GOOGLE_CLOUD_PROJECT: "${PROJECT_ID}"
+          GCLOUD_PROJECT: "${PROJECT_ID}"
+          FIREBASE_CONFIG: '{"projectId":"'"${PROJECT_ID}"'"}'
           EOF
 
           # 들여쓰기 제거 (위 heredoc 들여쓰기를 정리)
