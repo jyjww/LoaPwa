@@ -8,8 +8,9 @@ on:
 env:
   PROJECT_ID: loapwa-d0c74
   REGION: asia-northeast3
-  AR_REPO: loa-pwa # ← 실제 Artifact Registry 이름과 일치시켜!
+  AR_REPO: loa-pwa
   SERVICE: loa-api
+  BACKEND_DIR: Backend # ✅ 여기를 실제 백엔드 폴더명으로 변경 (예: backend, api 등)
 
 jobs:
   deploy:
@@ -21,35 +22,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1) OIDC 인증
       - name: Auth to GCP
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDP }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
 
-      # 2) Artifact Registry 로그인
       - name: Configure Docker to Artifact Registry
         run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" -q
 
-      # ✅ 3) IMAGE 경로를 런타임에 계산해서 $GITHUB_ENV로 익스포트
       - name: Compute IMAGE tag
         run: |
           echo "IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE }}" >> $GITHUB_ENV
 
-      # 4) 빌드 & 푸시
+      # ✅ 백엔드 폴더에서 빌드/푸시
       - name: Build & Push Image
+        working-directory: ${{ env.BACKEND_DIR }}
         run: |
           docker build -t "$IMAGE:${{ github.sha }}" .
           docker push "$IMAGE:${{ github.sha }}"
 
-      # 5) gcloud 준비
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # 6) Cloud Run 배포
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \
