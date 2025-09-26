@@ -1,9 +1,22 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
+  "rootDir": "../",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/src/$1"
+  },
+  "reporters": [
+    "default",
+    [
+      "jest-json-reporter",
+      {
+        "outputPath": "./results/e2e-results.json"
+      }
+    ]
+  ],
+  "setupFiles": ["<rootDir>/test/setup.ts"]
 }

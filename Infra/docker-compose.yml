@@ -20,14 +20,14 @@ services:
 
   server:
     build:
-      context: ../Backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: Backend/Dockerfile
     container_name: loa-server
     command: npm run start:dev
     ports:
       - '4000:4000'
     env_file:
-      - ../Backend/.env
+      - ../Backend/.env.development
     environment:
       NODE_ENV: development
       PORT: 4000
@@ -36,8 +36,9 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ../Backend:/app
-      - /app/node_modules
+      - ../Backend:/app/Backend
+      - ../shared:/app/Backend/shared
+      - /app/Backend/node_modules
     networks: [app]
 
   frontend:
@@ -49,13 +50,16 @@ services:
     ports:
       - '5173:5173'
     env_file:
-      - ../PwaFrontend/.env
+      - ../PwaFrontend/.env.development
     environment:
-      NODE_ENV: development
-      VITE_HMR_HOST: localhost
+      VITE_HMR_HOST: host.docker.internal # Docker 내부에서 호스트 머신을 가리키는 주소
       VITE_HMR_PORT: 5173
+      CHOKIDAR_USEPOLLING: 'true'
+      CHOKIDAR_INTERVAL: '200'
     volumes:
       - ../PwaFrontend:/app
+      - ../shared:/app/shared
+      - ../tsconfig.base.json:/tsconfig.base.json:ro
       - /app/node_modules
     depends_on:
       - server

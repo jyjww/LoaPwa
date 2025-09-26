@@ -1,14 +1,46 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Navigation from '@/components/Navigation';
-import { TrendingUp, Search, Star, Bell, BarChart3 } from 'lucide-react';
+import { TrendingUp, Search, Star, Bell, BarChart3, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
+  const [showPrompt, setShowPrompt] = useState(false);
+
+  useEffect(() => {
+    const flag = localStorage.getItem('showInstallPrompt');
+    if (flag === 'true') setShowPrompt(true);
+  }, []);
+
+  const handleDismiss = () => {
+    setShowPrompt(false);
+    localStorage.removeItem('showInstallPrompt');
+  };
   return (
     <div className="min-h-screen p-2 sm:p-4 bg-background">
       <div className="max-w-6xl mx-auto">
         <Navigation />
+
+        {/* ✅ PWA 설치 안내 배너 */}
+        {showPrompt && (
+          <Card className="mb-4 border-2 border-primary/40 bg-primary/5">
+            <CardHeader className="flex items-center justify-between flex-row">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <Download className="h-4 w-4 text-primary" />
+                홈화면에 추가하고 더 편리하게 이용하세요!
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={handleDismiss}>
+                닫기
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                브라우저 메뉴에서 <b>“홈 화면에 추가”</b>를 선택하면 앱처럼 사용할 수 있어요.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
           {/* Quick Stats */}

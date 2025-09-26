@@ -38,10 +38,9 @@ lerna-debug.log*
 
 # dotenv environment variable files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*
+.env.development
+.env.production
 
 # temp directory
 .temp
@@ -55,3 +54,7 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+# Jest e2e test results
+results/e2e-results.json
+
+
