@@ -7,7 +7,9 @@ import { LogIn } from 'lucide-react';
 const Login = () => {
   const handleGoogleLogin = () => {
     // ✅ 서버의 구글 OAuth 로그인 엔드포인트로 리다이렉트
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
+    // window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
+    const base = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
+    window.location.href = `${base}/auth/google`;
   };
 
   return (
