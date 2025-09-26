@@ -50,49 +50,12 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # 6) Cloud Run용 환경변수 YAML 생성 (쉼표/줄바꿈 안전)
-      - name: Write env file for Cloud Run
+      # 7) 배포 (Secret Manager + 간단 env)
+      - name: Deploy to Cloud Run
         run: |
           API_URL="https://${SERVICE}-${REGION}-a.run.app"
           GOOGLE_CALLBACK_URL="${API_URL}/auth/google/callback"
 
-          cat > env.deploy.yaml <<EOF
-          NODE_ENV: "production"
-          FRONTEND_URL: "https://loapwa-d0c74.web.app"
-          API_URL: "${API_URL}"
-          CORS_ORIGIN: "https://loapwa-d0c74.web.app"
-
-          GOOGLE_CLIENT_ID: "${{ secrets.GOOGLE_CLIENT_ID }}"
-          GOOGLE_CLIENT_SECRET: "${{ secrets.GOOGLE_CLIENT_SECRET }}"
-          GOOGLE_CALLBACK_URL: "${GOOGLE_CALLBACK_URL}"
-
-          LOSTARK_API_KEY: "${{ secrets.LOSTARK_API_KEY }}"
-
-          DB_HOST: "/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE}"
-          DB_PORT: "5432"
-          DB_NAME: "loadb"
-          DB_USER: "yzroot"
-          DB_PASSWORD: "${{ secrets.DB_PASSWORD }}"
-
-          FCM_PROJECT_ID: "${{ secrets.FCM_PROJECT_ID }}"
-          FCM_CLIENT_EMAIL: "${{ secrets.FCM_CLIENT_EMAIL }}"
-          # 줄바꿈은 시크릿에 \n로 저장하고 코드에서 replace(/\\n/g, '\n') 처리
-          FCM_PRIVATE_KEY: "${{ secrets.FCM_PRIVATE_KEY }}"
-
-          GOOGLE_CLOUD_PROJECT: "${PROJECT_ID}"
-          GCLOUD_PROJECT: "${PROJECT_ID}"
-          FIREBASE_CONFIG: >-
-            {"projectId":"loapwa-d0c74"}
-          EOF
-
-          # 들여쓰기 제거 (위 heredoc 들여쓰기를 정리)
-          sed -i.bak 's/^[[:space:]]\{10\}//' env.deploy.yaml && rm -f env.deploy.yaml.bak
-          echo "=== env.deploy.yaml ==="
-          cat env.deploy.yaml
-
-      # 7) 배포
-      - name: Deploy to Cloud Run
-        run: |
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE:${{ github.sha }}" \
             --region "$REGION" \
@@ -102,4 +65,5 @@ jobs:
             --concurrency=80 \
             --timeout=300 \
             --add-cloudsql-instances "${PROJECT_ID}:${REGION}:${SQL_INSTANCE}" \
-            --env-vars-file env.deploy.yaml
+            --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=${API_URL},CORS_ORIGIN=https://loapwa-d0c74.web.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL},DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,FCM_PROJECT_ID=${PROJECT_ID},FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCLOUD_PROJECT=${PROJECT_ID},FIREBASE_CONFIG={\"projectId\":\"${PROJECT_ID}\"}" \
+            --set-secrets "DB_PASSWORD=DB_PASSWORD:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,LOSTARK_API_KEY=LOSTARK_API_KEY:latest,FIREBASE_SA_JSON=FIREBASE_SA_JSON:latest"
