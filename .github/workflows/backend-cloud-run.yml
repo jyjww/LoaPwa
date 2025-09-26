@@ -1,19 +1,69 @@
-name: GCP OIDC Smoke Test
-on: workflow_dispatch
+# .github/workflows/deploy-cloudrun.yml
+name: Build & Deploy to Cloud Run
+
+on:
+  push:
+    branches: ['main'] # main에 푸시 시 배포
+
+env:
+  PROJECT_ID: loapwa-d0c74
+  REGION: asia-northeast3 # 서울 리전
+  AR_REPO: loa-pwa # Artifact Registry 리포 이름
+  SERVICE: loa-api # Cloud Run 서비스 이름
+  IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE }}
 
 jobs:
-  auth:
+  deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
+      id-token: write # OIDC 필수
+
     steps:
       - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+
+      # 1) GCP 인증 (OIDC; 키파일 불필요)
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDP }}
-          service_account: ${{ secrets.GCP_SA_EMAIL }}
-      - uses: google-github-actions/setup-gcloud@v2
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDP }} # projects/.../workloadIdentityPools/.../providers/<provider>
+          service_account: ${{ secrets.GCP_SA_EMAIL }} # gha-cloud-run@<PROJECT_ID>.iam.gserviceaccount.com
+
+      # 2) Artifact Registry 로그인
+      - name: Configure Docker to Artifact Registry
+        run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" -q
+
+      # 3) Docker 이미지 빌드 & 푸시
+      - name: Build & Push Image
+        run: |
+          docker build -t $IMAGE:${{ github.sha }} .
+          docker push $IMAGE:${{ github.sha }}
+
+      # 4) gcloud 설치
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: loapwa-d0c74 # 문자열 프로젝트 ID
-      - run: gcloud auth list && gcloud run services list --region asia-northeast3
+          project_id: ${{ env.PROJECT_ID }}
+
+      # 5) Cloud Run 배포 (+ Cloud SQL 연결 + 런타임 ENV 주입)
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy $SERVICE \
+            --image $IMAGE:${{ github.sha }} \
+            --region $REGION \
+            --allow-unauthenticated \
+            --min-instances=1 \
+            --max-instances=10 \
+            --concurrency=80 \
+            --add-cloudsql-instances $PROJECT_ID:$REGION:<YOUR_SQL_INSTANCE_NAME> \
+            --set-env-vars NODE_ENV=production \
+              FRONTEND_URL=https://loapwa-d0c74.web.app \
+              API_URL=https://$SERVICE-$REGION-a.run.app \
+              GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
+              GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
+              GOOGLE_CALLBACK_URL=https://$SERVICE-$REGION-a.run.app/auth/google/callback \
+              DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:${{ env.REGION }}:<YOUR_SQL_INSTANCE_NAME> \
+              DB_PORT=5432 \
+              DB_NAME=<YOUR_DB_NAME> \
+              DB_USER=<YOUR_DB_USER> \
+              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
