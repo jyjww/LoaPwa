@@ -14,23 +14,58 @@ export class FcmService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(FcmToken) private readonly fcmRepo: Repository<FcmToken>,
   ) {
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FCM_PROJECT_ID,
-          clientEmail: process.env.FCM_CLIENT_EMAIL,
-          privateKey: process.env.FCM_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-      });
+    // 이미 초기화돼 있으면 스킵
+    if (admin.apps.length) return;
+
+    // 1) 우선순위: 서비스계정 JSON 전체 (권장)
+    const saJson = process.env.FIREBASE_SA_JSON;
+
+    try {
+      if (saJson) {
+        const cred = JSON.parse(saJson);
+
+        // Secret에 \n이 문자로 들어간 형태까지 모두 커버
+        if (typeof cred.private_key === 'string') {
+          cred.private_key = cred.private_key.replace(/\\n/g, '\n');
+        }
+
+        admin.initializeApp({
+          credential: admin.credential.cert(cred as admin.ServiceAccount),
+        });
+        this.logger.log('Firebase Admin initialized via FIREBASE_SA_JSON');
+      } else {
+        // 2) 개별 ENV 3종 (기존 방식)
+        const projectId = process.env.FCM_PROJECT_ID;
+        const clientEmail = process.env.FCM_CLIENT_EMAIL;
+        const privateKey = (process.env.FCM_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
+
+        if (!projectId || !clientEmail || !privateKey) {
+          throw new Error(
+            'Missing Firebase credentials. Provide FIREBASE_SA_JSON or FCM_PROJECT_ID/FCM_CLIENT_EMAIL/FCM_PRIVATE_KEY.',
+          );
+        }
+
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          }),
+        });
+        this.logger.log('Firebase Admin initialized via FCM_* envs');
+      }
+    } catch (e: any) {
+      this.logger.error(`Firebase Admin init failed: ${e?.message || e}`);
+      // 초기화 실패 시 이후 로직에서 바로 죽어버리므로 그대로 throw
+      throw e;
     }
   }
 
   async sendPush(message: { userId: string; title: string; body: string }): Promise<void> {
     try {
-      // 🔹 DB에서 userId로 fcmToken 목록 조회
       const user = await this.userRepo.findOne({
         where: { id: message.userId },
-        relations: ['fcmTokens'], // User.fcmTokens 관계 가져오기
+        relations: ['fcmTokens'],
       });
 
       if (!user || user.fcmTokens.length === 0) {
@@ -47,34 +82,35 @@ export class FcmService {
               body: message.body,
             },
             data: {
-              url: '/favorites', // 👈 클릭 시 열릴 페이지
-              type: 'ALERT', // 👈 커스텀 이벤트 타입
-              userId: message.userId, // 👈 유저 ID 전달
+              url: '/favorites',
+              type: 'ALERT',
+              userId: message.userId,
             },
           });
-          this.logger.log(`✅ FCM 알림 전송 성공: ${message.title}, token=${tokenEntity.token}`);
+          this.logger.log(`✅ FCM 전송 성공: ${message.title}, token=${tokenEntity.token}`);
         } catch (error: any) {
-          if (error.code === 'messaging/registration-token-not-registered') {
+          if (error?.code === 'messaging/registration-token-not-registered') {
             await this.unregisterToken(tokenEntity.token);
             this.logger.warn(`🗑️ 만료된 토큰 삭제: ${tokenEntity.token}`);
           } else {
-            this.logger.error(`❌ FCM 전송 실패: token=${tokenEntity.token}`, error);
+            this.logger.error(
+              `❌ FCM 전송 실패: token=${tokenEntity.token} / ${error?.message || error}`,
+            );
           }
         }
       }
-    } catch (error) {
-      this.logger.error('❌ sendPush 실행 실패', error);
+    } catch (error: any) {
+      this.logger.error(`❌ sendPush 실행 실패: ${error?.message || error}`);
     }
   }
 
-  // 🔹 토큰 등록
   async registerToken(userId: string, token: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new Error('User not found');
 
     const exists = await this.fcmRepo.findOne({ where: { token } });
     if (exists) {
-      exists.user = user; // 혹시 소유자 바뀌면 갱신
+      exists.user = user;
       return this.fcmRepo.save(exists);
     }
 
@@ -82,7 +118,6 @@ export class FcmService {
     return this.fcmRepo.save(fcmToken);
   }
 
-  // 🔹 토큰 삭제
   async unregisterToken(token: string) {
     await this.fcmRepo.delete({ token });
     return { message: 'Token removed' };
