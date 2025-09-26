@@ -10,7 +10,6 @@ env:
   REGION: asia-northeast3
   AR_REPO: loa-pwa
   SERVICE: loa-api
-  BACKEND_DIR: Backend # ✅ 여기를 실제 백엔드 폴더명으로 변경 (예: backend, api 등)
 
 jobs:
   deploy:
@@ -37,9 +36,8 @@ jobs:
 
       # ✅ 백엔드 폴더에서 빌드/푸시
       - name: Build & Push Image
-        working-directory: ${{ env.BACKEND_DIR }}
         run: |
-          docker build -t "$IMAGE:${{ github.sha }}" .
+          docker build -f Backend/Dockerfile -t "$IMAGE:${{ github.sha }}" .
           docker push "$IMAGE:${{ github.sha }}"
 
       - name: Setup gcloud
