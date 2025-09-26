@@ -3,67 +3,61 @@ name: Build & Deploy to Cloud Run
 
 on:
   push:
-    branches: ['main'] # main에 푸시 시 배포
+    branches: ['main']
 
 env:
   PROJECT_ID: loapwa-d0c74
-  REGION: asia-northeast3 # 서울 리전
-  AR_REPO: loa-pwa # Artifact Registry 리포 이름
-  SERVICE: loa-api # Cloud Run 서비스 이름
-  IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE }}
+  REGION: asia-northeast3
+  AR_REPO: loa-pwa # ← 실제 Artifact Registry 이름과 일치시켜!
+  SERVICE: loa-api
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # OIDC 필수
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
 
-      # 1) GCP 인증 (OIDC; 키파일 불필요)
+      # 1) OIDC 인증
       - name: Auth to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDP }} # projects/.../workloadIdentityPools/.../providers/<provider>
-          service_account: ${{ secrets.GCP_SA_EMAIL }} # gha-cloud-run@<PROJECT_ID>.iam.gserviceaccount.com
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDP }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       # 2) Artifact Registry 로그인
       - name: Configure Docker to Artifact Registry
         run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" -q
 
-      # 3) Docker 이미지 빌드 & 푸시
+      # ✅ 3) IMAGE 경로를 런타임에 계산해서 $GITHUB_ENV로 익스포트
+      - name: Compute IMAGE tag
+        run: |
+          echo "IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE }}" >> $GITHUB_ENV
+
+      # 4) 빌드 & 푸시
       - name: Build & Push Image
         run: |
-          docker build -t $IMAGE:${{ github.sha }} .
-          docker push $IMAGE:${{ github.sha }}
+          docker build -t "$IMAGE:${{ github.sha }}" .
+          docker push "$IMAGE:${{ github.sha }}"
 
-      # 4) gcloud 설치
+      # 5) gcloud 준비
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # 5) Cloud Run 배포 (+ Cloud SQL 연결 + 런타임 ENV 주입)
+      # 6) Cloud Run 배포
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy $SERVICE \
-            --image $IMAGE:${{ github.sha }} \
-            --region $REGION \
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --region "$REGION" \
             --allow-unauthenticated \
             --min-instances=1 \
             --max-instances=10 \
             --concurrency=80 \
-            --add-cloudsql-instances $PROJECT_ID:$REGION:<YOUR_SQL_INSTANCE_NAME> \
-            --set-env-vars NODE_ENV=production \
-              FRONTEND_URL=https://loapwa-d0c74.web.app \
-              API_URL=https://$SERVICE-$REGION-a.run.app \
-              GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
-              GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }} \
-              GOOGLE_CALLBACK_URL=https://$SERVICE-$REGION-a.run.app/auth/google/callback \
-              DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:${{ env.REGION }}:<YOUR_SQL_INSTANCE_NAME> \
-              DB_PORT=5432 \
-              DB_NAME=<YOUR_DB_NAME> \
-              DB_USER=<YOUR_DB_USER> \
-              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            --add-cloudsql-instances "${PROJECT_ID}:${REGION}:<YOUR_SQL_INSTANCE_NAME>" \
+            --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=https://${SERVICE}-${REGION}-a.run.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},GOOGLE_CALLBACK_URL=https://${SERVICE}-${REGION}-a.run.app/auth/google/callback,DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:<YOUR_SQL_INSTANCE_NAME>,DB_PORT=5432,DB_NAME=<YOUR_DB_NAME>,DB_USER=<YOUR_DB_USER>,DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
