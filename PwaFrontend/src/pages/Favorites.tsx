@@ -155,6 +155,8 @@ const Favorites = () => {
           alertedItems={getAlertedItems(auctionFavorites)}
           trackedItems={getTrackedItems(auctionFavorites)}
           ItemCard={AuctionItemCard}
+          onRemove={handleRemoveFavorite}
+          onEdit={handleEditTargetPrice}
         />
 
         {/* 거래소 즐겨찾기 */}
@@ -164,6 +166,8 @@ const Favorites = () => {
           alertedItems={getAlertedItems(marketFavorites)}
           trackedItems={getTrackedItems(marketFavorites)}
           ItemCard={MarketItemCard}
+          onRemove={handleRemoveFavorite}
+          onEdit={handleEditTargetPrice}
         />
 
         {favorites.length === 0 && (
@@ -232,12 +236,16 @@ const FavoriteSection = ({
   alertedItems,
   trackedItems,
   ItemCard,
+  onRemove,
+  onEdit,
 }: {
   label: string;
   icon: React.ReactNode;
   alertedItems: any[];
   trackedItems: any[];
   ItemCard: React.FC<any>;
+  onRemove: (id: string) => void | Promise<void>;
+  onEdit: (item: any) => void;
 }) => (
   <>
     <div className="mb-4 flex items-center gap-2">
@@ -261,10 +269,22 @@ const FavoriteSection = ({
             trackedItems.length,
           );
 
-          return item.source === 'auction' ? (
-            <ItemCard key={item.id} item={item} isFavorite />
-          ) : (
-            <MarketItemCard key={item.id} item={item} isFavorite onFavorite={() => {}} />
+          return (
+            <div key={item.id} className="space-y-2">
+              {item.source === 'auction' ? (
+                <ItemCard item={item} isFavorite />
+              ) : (
+                <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
+                  Edit Target
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
+                  Remove
+                </Button>
+              </div>
+            </div>
           );
         })}
       </div>
@@ -273,10 +293,22 @@ const FavoriteSection = ({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
       {trackedItems.map((raw) => {
         const item = raw.source === 'auction' ? normalizeAuctionFavorite(raw) : raw;
-        return item.source === 'auction' ? (
-          <ItemCard key={item.id} item={item} isFavorite />
-        ) : (
-          <MarketItemCard key={item.id} item={item} isFavorite onFavorite={() => {}} />
+        return (
+          <div key={item.id} className="space-y-2">
+            {item.source === 'auction' ? (
+              <ItemCard item={item} isFavorite />
+            ) : (
+              <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
+                Edit Target
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
+                Remove
+              </Button>
+            </div>
+          </div>
         );
       })}
     </div>
