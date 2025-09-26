@@ -57,3 +57,18 @@ jobs:
             --concurrency=80 \
             --add-cloudsql-instances "${PROJECT_ID}:${REGION}:${SQL_INSTANCE}" \
             --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=https://${SERVICE}-${REGION}-a.run.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},GOOGLE_CALLBACK_URL=https://${SERVICE}-${REGION}-a.run.app/auth/google/callback,DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE},DB_HOST=127.0.0.1,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
+      # 실패하면 직전 리비전의 에러 로그를 덤프
+      - name: Dump latest Cloud Run logs on failure
+        if: failure()
+        run: |
+          set -e
+          REV=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.latestCreatedRevisionName)')
+          echo "Latest created revision: $REV"
+          echo "---- STDERR (ERROR+ only) ----"
+          gcloud logs read --region="$REGION" --limit=200 \
+            --format='value(textPayload)' \
+            'resource.type="cloud_run_revision" AND resource.labels.service_name="'$SERVICE'" AND resource.labels.revision_name="'$REV'" AND severity>=ERROR'
+          echo "---- STDOUT (last 200 lines) ----"
+          gcloud logs read --region="$REGION" --limit=200 \
+            --format='value(textPayload)' \
+            'resource.type="cloud_run_revision" AND resource.labels.service_name="'$SERVICE'" AND resource.labels.revision_name="'$REV'"'
