@@ -13,6 +13,10 @@ COPY tsconfig.base.json ./tsconfig.base.json
 COPY shared ./shared
 COPY Backend ./Backend
 
+# ✅ Backend/src 기준의 경로 매핑을 만족시키기 위해 Backend/shared도 만들어 준다
+#    (@shared/* -> ../shared/* 이므로 /app/Backend/shared 가 필요)
+RUN mkdir -p /app/Backend/shared && cp -R /app/shared/. /app/Backend/shared/
+
 # 빌드 (dist 생성)
 RUN cd Backend && npm run build
 
