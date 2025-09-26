@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
         clientPort: HMR_PORT,
       },
       // allowedHosts: [env.VITE_ALLOWED_HOSTS, 'localhost'],
-      allowedHosts: ['localhost', '127.0.0.1', 'db3c7fd4cc7d.ngrok-free.app'],
+      allowedHosts: ['localhost', '127.0.0.1', 'a020bfb66197.ngrok-free.app'],
     },
   };
 });

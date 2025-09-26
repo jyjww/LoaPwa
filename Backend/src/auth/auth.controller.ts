@@ -47,7 +47,10 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
-    console.log("redirect to:", `${process.env.FRONTEND_URL}/login/success?accessToken=${accessToken}`);
+    console.log(
+      'redirect to:',
+      `${process.env.FRONTEND_URL}/login/success?accessToken=${accessToken}`,
+    );
 
     return res.redirect(`${process.env.FRONTEND_URL}/login/success?accessToken=${accessToken}`);
   }

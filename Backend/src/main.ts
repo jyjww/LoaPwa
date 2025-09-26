@@ -10,10 +10,10 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: [
-      (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','),
-      'db3c7fd4cc7d.ngrok-free.app',
-    ],
+    origin: (process.env.CORS_ORIGIN ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
