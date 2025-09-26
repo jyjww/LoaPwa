@@ -38,7 +38,7 @@ jobs:
       # ✅ 백엔드 폴더에서 빌드/푸시
       - name: Build & Push Image
         run: |
-          docker build -f Backend/Dockerfile -t "$IMAGE:${{ github.sha }}" .
+          docker build -f Backend/Dockerfile.prod -t "$IMAGE:${{ github.sha }}" .
           docker push "$IMAGE:${{ github.sha }}"
 
       - name: Setup gcloud

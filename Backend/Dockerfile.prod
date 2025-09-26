@@ -1,0 +1,39 @@
+# Backend/Dockerfile
+
+# 1) Build stage (ts → dist)
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# 백엔드 의존성 설치
+COPY Backend/package*.json ./Backend/
+RUN cd Backend && npm ci
+
+# 소스 복사 (루트 공유 파일 포함)
+COPY tsconfig.base.json ./tsconfig.base.json
+COPY shared ./shared
+COPY Backend ./Backend
+
+# 빌드 (dist 생성)
+RUN cd Backend && npm run build
+
+# 2) Run stage (프로덕션 실행)
+FROM node:20-alpine AS runner
+WORKDIR /app/Backend
+ENV NODE_ENV=production
+
+# 프로덕션 의존성만 설치
+COPY --from=builder /app/Backend/package*.json ./
+RUN npm ci --omit=dev
+
+# 실행 산출물/필요 리소스 복사
+COPY --from=builder /app/Backend/dist ./dist
+# (선택) 런타임에 shared가 필요 없다면 아래 두 줄은 생략 가능
+COPY --from=builder /app/tsconfig.base.json /app/tsconfig.base.json
+COPY --from=builder /app/shared /app/shared
+
+# Cloud Run은 8080으로 요청을 보냅니다.
+EXPOSE 8080
+ENV PORT=8080
+
+# NestJS 앱 실행 (dist)
+CMD ["node", "dist/main.js"]
