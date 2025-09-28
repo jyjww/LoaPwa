@@ -2,15 +2,30 @@
 name: Build & Deploy to Cloud Run
 
 on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force deploy without change'
+        required: false
+        default: 'false'
   push:
-    branches: ['main']
+    branches: ['deploy']
+    paths:
+      - 'Backend/**'
+      - 'shared/**'
+      - 'Backend/Dockerfile.prod'
+      - '.github/workflows/deploy-cloudrun.yml'
+
+concurrency:
+  group: cloudrun-backend-deploy
+  cancel-in-progress: true
 
 env:
   PROJECT_ID: loapwa-d0c74
   REGION: asia-northeast3
   AR_REPO: loa-pwa
   SERVICE: loa-api
-  SQL_INSTANCE: loa-psql
+  SQL_INSTANCE: loa-psql2
 
 jobs:
   deploy:
@@ -21,6 +36,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Detect backend changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'Backend/**'
+              - 'shared/**'
+              - 'Backend/Dockerfile.prod'
 
       # 1) GCP OIDC 인증
       - name: Auth to GCP
@@ -38,8 +63,16 @@ jobs:
         run: |
           echo "IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE }}" >> $GITHUB_ENV
 
+      # 변경 없고, 수동 실행에서도 force=false면 스킵
+      - name: Skip if no backend changes (unless forced)
+        if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.force != 'true') && steps.changes.outputs.backend != 'true' }}
+        run: |
+          echo "No backend changes detected and 'force' not set. Skipping."
+          exit 0
+
       # 4) 백엔드 이미지 빌드 & 푸시 (컨텍스트=루트, prod Dockerfile 사용)
       - name: Build & Push Image
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
           docker build -f Backend/Dockerfile.prod -t "$IMAGE:${{ github.sha }}" .
           docker push "$IMAGE:${{ github.sha }}"
@@ -52,6 +85,7 @@ jobs:
 
       # 7) 배포 (Secret Manager + 간단 env)
       - name: Deploy to Cloud Run
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
           API_URL="https://${SERVICE}-${REGION}-a.run.app"
           GOOGLE_CALLBACK_URL="${API_URL}/auth/google/callback"
@@ -67,3 +101,8 @@ jobs:
             --add-cloudsql-instances "${PROJECT_ID}:${REGION}:${SQL_INSTANCE}" \
             --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=${API_URL},CORS_ORIGIN=https://loapwa-d0c74.web.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL},DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,FCM_PROJECT_ID=${PROJECT_ID},FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCLOUD_PROJECT=${PROJECT_ID},FIREBASE_CONFIG={\"projectId\":\"${PROJECT_ID}\"}" \
             --set-secrets "DB_PASSWORD=DB_PASSWORD:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,LOSTARK_API_KEY=LOSTARK_API_KEY:latest,FIREBASE_SA_JSON=FIREBASE_SA_JSON:latest"
+
+      - name: Show service URL
+        if: ${{ success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true') }}
+        run: |
+          gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)'

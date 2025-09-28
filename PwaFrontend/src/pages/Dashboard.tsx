@@ -4,19 +4,31 @@ import { Button } from '@/components/ui/button';
 import Navigation from '@/components/Navigation';
 import { TrendingUp, Search, Star, Bell, BarChart3, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import usePWAInstall from '@/hooks/usePWAInstall';
 
 const Dashboard = () => {
   const [showPrompt, setShowPrompt] = useState(false);
+  const { canInstall, isStandalone, isiOS, promptInstall } = usePWAInstall();
 
   useEffect(() => {
-    const flag = localStorage.getItem('showInstallPrompt');
-    if (flag === 'true') setShowPrompt(true);
-  }, []);
+    const flag = localStorage.getItem('showInstallPrompt') === 'true';
+    if (!isStandalone && (flag || canInstall)) setShowPrompt(true);
+  }, [canInstall, isStandalone]);
 
   const handleDismiss = () => {
     setShowPrompt(false);
     localStorage.removeItem('showInstallPrompt');
   };
+
+  const handleInstallClick = async () => {
+    if (isiOS) {
+      // iOS는 시스템 프롬프트가 없으므로 가이드만 유지
+      return;
+    }
+    const ok = await promptInstall();
+    if (ok) setShowPrompt(false);
+  };
+
   return (
     <div className="min-h-screen p-2 sm:p-4 bg-background">
       <div className="max-w-6xl mx-auto">
@@ -34,10 +46,21 @@ const Dashboard = () => {
                 닫기
               </Button>
             </CardHeader>
-            <CardContent>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                브라우저 메뉴에서 <b>“홈 화면에 추가”</b>를 선택하면 앱처럼 사용할 수 있어요.
-              </p>
+            <CardContent className="flex items-center justify-between gap-3">
+              {isiOS ? (
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  iOS는 <b>공유</b> 버튼 → <b>“홈 화면에 추가”</b>를 눌러 설치할 수 있어요.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    설치하면 더 빠르게 접근할 수 있어요.
+                  </p>
+                  <Button size="sm" onClick={handleInstallClick}>
+                    설치
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
