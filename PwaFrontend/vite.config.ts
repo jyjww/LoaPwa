@@ -4,11 +4,16 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
 export default defineConfig(({ mode }) => {
-  // .env만 있어도 OK. 세 번째 인자 '' → 접두사 제한 없이 모두 로드
   const env = loadEnv(mode, process.cwd(), '');
 
-  const HMR_HOST = env.VITE_HMR_HOST || '0.0.0.0';
+  const HMR_HOST = env.VITE_HMR_HOST || 'localhost';
   const HMR_PORT = Number(env.VITE_HMR_PORT || 5173);
+
+  // 쉼표로 받은 호스트 리스트 (개발용)
+  const ALLOWED = (env.VITE_ALLOWED_HOSTS || 'localhost,127.0.0.1')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   return {
     plugins: [react(), tailwindcss()],
@@ -30,8 +35,7 @@ export default defineConfig(({ mode }) => {
         protocol: 'ws',
         clientPort: HMR_PORT,
       },
-      // allowedHosts: [env.VITE_ALLOWED_HOSTS, 'localhost'],
-      allowedHosts: ['localhost', '127.0.0.1', 'a020bfb66197.ngrok-free.app'],
+      allowedHosts: ALLOWED,
     },
   };
 });

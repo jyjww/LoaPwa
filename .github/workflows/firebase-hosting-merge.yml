@@ -1,8 +1,17 @@
 name: Firebase Hosting Deploy
 
 on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force deploy without change'
+        required: false
+        default: 'false'
   push:
-    branches: ['main']
+    branches: ['deploy']
+    paths:
+      - 'PwaFrontend/**'
+      - '.github/workflows/firebase-frontend-deploy.yml'
 
 jobs:
   build_and_deploy:
@@ -13,11 +22,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'PwaFrontend/**'
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: PwaFrontend/package-lock.json
+
+      - name: Skip if no frontend changes
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force != 'true' && steps.changes.outputs.frontend != 'true' }}
+        run: |
+          echo "No frontend changes detected and 'force' not set. Skipping."
+          exit 0
 
       - name: Build (PwaFrontend)
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.frontend == 'true' }}
         working-directory: PwaFrontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
@@ -26,6 +52,7 @@ jobs:
           npm run build
 
       - name: Deploy to Firebase (Live)
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.frontend == 'true' }}
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
