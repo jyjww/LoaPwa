@@ -10,7 +10,7 @@ env:
   REGION: asia-northeast3
   AR_REPO: loa-pwa
   SERVICE: loa-api
-  SQL_INSTANCE: loa-psql
+  SQL_INSTANCE: loa-psql2
 
 jobs:
   deploy:
