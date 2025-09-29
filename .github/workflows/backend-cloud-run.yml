@@ -26,6 +26,7 @@ env:
   AR_REPO: loa-pwa
   SERVICE: loa-api
   SQL_INSTANCE: loa-psql2
+  DB_REGION: us-central1
 
 jobs:
   deploy:
@@ -98,8 +99,8 @@ jobs:
             --max-instances=10 \
             --concurrency=80 \
             --timeout=300 \
-            --add-cloudsql-instances "${PROJECT_ID}:${REGION}:${SQL_INSTANCE}" \
-            --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=${API_URL},CORS_ORIGIN=https://loapwa-d0c74.web.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL},DB_HOST=/cloudsql/${PROJECT_ID}:${REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,FCM_PROJECT_ID=${PROJECT_ID},FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCLOUD_PROJECT=${PROJECT_ID},FIREBASE_CONFIG={\"projectId\":\"${PROJECT_ID}\"}" \
+            --add-cloudsql-instances "${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE}" \
+            --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=${API_URL},CORS_ORIGIN=https://loapwa-d0c74.web.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL},DB_HOST=/cloudsql/${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,FCM_PROJECT_ID=${PROJECT_ID},FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCLOUD_PROJECT=${PROJECT_ID},FIREBASE_CONFIG={\"projectId\":\"${PROJECT_ID}\"}" \
             --set-secrets "DB_PASSWORD=DB_PASSWORD:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,LOSTARK_API_KEY=LOSTARK_API_KEY:latest,FIREBASE_SA_JSON=FIREBASE_SA_JSON:latest"
 
       - name: Show service URL
