@@ -48,6 +48,29 @@ jobs:
               - 'shared/**'
               - 'Backend/Dockerfile.prod'
 
+      - name: Debug GitHub context (quick)
+        run: |
+          echo "github.repository=${{ github.repository }}"
+          echo "github.ref=${{ github.ref }}"
+
+      - name: Dump OIDC claims (repository/ref 확인)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # audience는 보통 //iam.googleapis.com/ + provider 리소스
+          AUDIENCE="//iam.googleapis.com/${{ secrets.GCP_WORKLOAD_IDP }}"
+          # OIDC 토큰 요청
+          RESP=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUDIENCE}")
+          IDTOKEN=$(echo "$RESP" | jq -r '.value')
+          # JWT payload 디코딩
+          PAYLOAD=$(echo "$IDTOKEN" | cut -d'.' -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | jq .)
+          echo "==== OIDC JWT payload ===="
+          echo "$PAYLOAD"
+          echo "repo  : $(echo "$PAYLOAD" | jq -r '.repository')"
+          echo "ref   : $(echo "$PAYLOAD" | jq -r '.ref')"
+          echo "issuer: $(echo "$PAYLOAD" | jq -r '.iss')"
+
       # 1) GCP OIDC 인증
       - name: Auth to GCP
         uses: google-github-actions/auth@v2
