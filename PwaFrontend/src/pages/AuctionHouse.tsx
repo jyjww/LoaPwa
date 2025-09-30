@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+// src/pages/Auction.tsx (혹은 AuctionHouse.tsx)
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Navigation from '@/components/Navigation';
@@ -9,8 +10,42 @@ import CategoryFilter from '@/components/pages/CategoryFilter';
 import { CategoryEtcOptions } from '@/constants/etcOptions';
 import EtcOptionsFilter from '@/components/pages/EtcOptionsFilter';
 import { searchAuctions } from '@/services/auction.dto';
-import { addFavorite } from '@/services/favorites/favorites.service';
+import {
+  addFavorite,
+  fetchFavorites,
+  removeFavorite,
+} from '@/services/favorites/favorites.service';
 import { makeAuctionKey, type CategoryKey } from '@shared/utils/matchAuctionKey';
+import { useFavoriteLookup } from '@/hooks/useFavoriteLookup';
+
+type CanonOption = { name: string; value: number; displayValue: number };
+
+const normalizeOptions = (opts?: any[]): CanonOption[] =>
+  Array.isArray(opts)
+    ? opts
+        .map((o) => {
+          const rawV =
+            typeof o?.value === 'string' && !Number.isNaN(Number(o.value))
+              ? Number(o.value)
+              : typeof o?.value === 'number'
+                ? o.value
+                : 0;
+          const dv = typeof o?.displayValue === 'number' ? o.displayValue : rawV;
+          return {
+            name: String(o?.name ?? ''),
+            value: rawV,
+            displayValue: dv,
+          };
+        })
+        .sort((a, b) => (a.name > b.name ? 1 : a.name < b.name ? -1 : 0))
+    : [];
+
+// AuctionItemCard와 동일한 옵션 폴백 규칙
+const pickOptionsForKey = (item: any) =>
+  item.options ??
+  (Array.isArray(item.auctionInfo?.options) ? item.auctionInfo.options : undefined) ??
+  item.info?.options ??
+  [];
 
 const AuctionHouse = () => {
   const [filters, setFilters] = useState({
@@ -32,58 +67,73 @@ const AuctionHouse = () => {
 
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
+  // ✅ 즐겨찾기 상태(서버) & 조회 헬퍼
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const { getAuctionFavorite } = useFavoriteLookup(favorites);
+
+  // 최초 로드 시 즐겨찾기 가져오기
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await fetchFavorites();
+        setFavorites(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.warn('[Auction] fetchFavorites failed:', e);
+        setFavorites([]);
+      }
+    })();
+  }, []);
+
+  // 즐겨찾기 새로고침
+  const refreshFavorites = useCallback(async () => {
+    try {
+      const list = await fetchFavorites();
+      setFavorites(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.warn('[Auction] refreshFavorites failed:', e);
+    }
+  }, []);
+
   const handleSearch = async (reset = true) => {
     setLoading(true);
     try {
       const data = await searchAuctions(filters);
+      if (reset) setResults(data.items || []);
+      else setResults((prev) => [...prev, ...(data.items || [])]);
 
-      if (reset) {
-        setResults(data.items || []);
-      } else {
-        setResults((prev) => [...prev, ...(data.items || [])]);
-      }
       setTotalCount(data.totalCount ?? 0);
-
-      // ✅ 서버에서 더 이상 데이터가 없을 때만 false
-      // setHasMore(data.items && data.items.length > 0);
-      setHasMore(results.length + (data.items?.length || 0) < data.totalCount);
+      setHasMore((reset ? 0 : results.length) + (data.items?.length || 0) < (data.totalCount ?? 0));
     } catch (err) {
       console.error('API 검색 실패:', err);
-      setHasMore(false); // API 에러 발생 시 더 이상 요청하지 않도록 설정
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSearchButton = () => {
-    setIsSearching(true); // ✅ 검색 시작 상태로 변경
-    setResults([]); // 이전 결과 초기화
-    setHasMore(true); // 새 검색에서는 다시 true
-    setFilters((prev) => ({ ...prev, pageNo: 1 })); // 페이지 초기화
+    setIsSearching(true);
+    setResults([]);
+    setHasMore(true);
+    setFilters((prev) => ({ ...prev, pageNo: 1 }));
   };
 
-  // 필터 변경 시 pageNo 초기화 + 새 검색
   const handleChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, pageNo: 1 }));
   };
 
-  // pageNo 변경될 때 API 호출
   useEffect(() => {
     if (!isSearching) return;
-
-    const fetch = async () => {
-      if (loading) return; // 중복 방지
-      await handleSearch(filters.pageNo === 1);
-    };
-    fetch();
+    (async () => {
+      if (!loading) await handleSearch(filters.pageNo === 1);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.pageNo, isSearching]);
 
-  // 무한 스크롤 옵저버
   useEffect(() => {
-    if (!loaderRef.current) return;
     const target = loaderRef.current;
-
-    const observer = new IntersectionObserver(
+    if (!target) return;
+    const io = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !loading && hasMore) {
           setFilters((prev) => ({ ...prev, pageNo: (prev.pageNo as number) + 1 }));
@@ -91,9 +141,8 @@ const AuctionHouse = () => {
       },
       { threshold: 0.1 },
     );
-
-    observer.observe(target);
-    return () => observer.disconnect();
+    io.observe(target);
+    return () => io.disconnect();
   }, [loading, hasMore]);
 
   const filteredItems = useMemo(() => {
@@ -104,6 +153,7 @@ const AuctionHouse = () => {
     });
   }, [results, filters]);
 
+  // 경매 카테고리 추정(기존 로직 유지)
   const classifyAuctionCategory = (item: any): CategoryKey => {
     if (item.name.includes('비상의 돌')) return 'stone';
     if (/멸화|홍염/.test(item.name)) return 'gem';
@@ -111,41 +161,45 @@ const AuctionHouse = () => {
     return 'generic';
   };
 
-  const handleAddFavorite = async (item: any) => {
-    const category = classifyAuctionCategory(item);
-
-    const matchKey = makeAuctionKey(
-      {
-        name: item.name,
-        grade: item.grade,
-        tier: item.tier,
-        quality: item.quality ?? null,
-        options: item.options,
-      },
-      category,
-    );
-
-    console.log('[addFavorite] matchKey=', matchKey);
-
+  // ✅ 즐겨찾기 토글 (matchKey/옵션 정규화 통일)
+  const handleToggleFavorite = async (item: any) => {
     try {
-      await addFavorite({
-        source: 'auction',
-        itemId: item.id ?? undefined, // 경매장 고유 id가 없으면 null 허용
-        matchKey, // 👈 새 필드
-        name: item.name,
-        grade: item.grade,
-        tier: item.tier,
-        icon: item.icon,
-        quality: item.quality,
-        currentPrice: item.currentPrice,
-        previousPrice: item.previousPrice,
-        auctionInfo: item.auctionInfo,
-        options: item.options,
-      });
-      alert('즐겨찾기에 추가되었습니다!');
+      const category = classifyAuctionCategory(item);
+      const canonOptions = normalizeOptions(pickOptionsForKey(item));
+      const matchKey = makeAuctionKey(
+        {
+          name: item.name,
+          grade: item.grade,
+          tier: item.tier,
+          quality: item.quality ?? null,
+          options: canonOptions,
+        },
+        category,
+      );
+
+      const existing = getAuctionFavorite(matchKey);
+      if (existing) {
+        await removeFavorite(existing.id);
+      } else {
+        await addFavorite({
+          source: 'auction',
+          itemId: item.id ?? undefined,
+          matchKey,
+          name: item.name,
+          grade: item.grade,
+          tier: item.tier,
+          icon: item.icon,
+          quality: item.quality,
+          currentPrice: item.currentPrice,
+          previousPrice: item.previousPrice,
+          auctionInfo: item.auctionInfo,
+          options: canonOptions,
+        });
+      }
+      await refreshFavorites();
     } catch (err) {
-      console.error('즐겨찾기 저장 실패:', err);
-      alert('로그인이 필요합니다.');
+      console.error('즐겨찾기 토글 실패:', err);
+      alert('즐겨찾기 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -158,14 +212,12 @@ const AuctionHouse = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5 text-primary" />
-              경매장 검색 (Auction)ggg
+              경매장 검색 (Auction)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* 🔎 검색바 */}
             <SearchBar filters={filters} onChange={handleChange} onSearch={handleSearchButton} />
 
-            {/* 📂 카테고리 필터 */}
             <CategoryFilter
               category={filters.category}
               subCategory={filters.subCategory}
@@ -177,7 +229,7 @@ const AuctionHouse = () => {
 
             {!['전체', 10000, 210000].includes(filters.category) && (
               <EtcOptionsFilter
-                availableOptions={CategoryEtcOptions[filters.category as number] || []} // ✅ string[]만 내려감
+                availableOptions={CategoryEtcOptions[filters.category as number] || []}
                 selected={filters.etcOptions}
                 onChange={(opts) => setFilters((prev) => ({ ...prev, etcOptions: opts }))}
                 subCategory={filters.subCategory as number}
@@ -196,10 +248,46 @@ const AuctionHouse = () => {
           </Badge>
         </div>
 
+        {/* ✅ 즐겨찾기 상태 내려주기: isFavorite / favoriteId */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item, idx) => (
-            <ItemCard key={item.id ?? idx} item={item} onFavorite={() => handleAddFavorite(item)} />
-          ))}
+          {filteredItems.map((item, idx) => {
+            const category = classifyAuctionCategory(item);
+            const canonOptions = normalizeOptions(pickOptionsForKey(item));
+            const matchKey = makeAuctionKey(
+              {
+                name: item.name,
+                grade: item.grade,
+                tier: item.tier ?? null,
+                quality: item.quality ?? null,
+                options: canonOptions,
+              },
+              category,
+            );
+
+            // 매물 고유 식별 후보들을 조합
+            const uniqueness =
+              item.id ??
+              item.auctionInfo?.Uid ??
+              item.info?.auctionInfo?.Uid ??
+              item.auctionInfo?.EndDate ??
+              item.info?.auctionInfo?.EndDate ??
+              // 최후 보루: 가격/횟수 조합 또는 인덱스
+              `${item.currentPrice ?? ''}-${item.previousPrice ?? ''}-${item.tradeCount ?? ''}` ??
+              idx;
+
+            const rowKey = `${matchKey}-${uniqueness}`;
+
+            const fav = getAuctionFavorite(matchKey);
+
+            return (
+              <ItemCard
+                key={rowKey}
+                item={item}
+                onFavorite={() => handleToggleFavorite(item)}
+                favoriteId={fav?.id}
+              />
+            );
+          })}
         </div>
 
         {/* 무한 스크롤 로더 */}

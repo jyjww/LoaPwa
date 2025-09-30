@@ -8,7 +8,12 @@ import { Filter, Search } from 'lucide-react';
 import { marketCategories } from '@/constants/marketCategories';
 import SearchBar from '@/components/pages/SearchBar';
 import { searchMarket } from '@/services/market.dto';
-import { addFavorite } from '@/services/favorites/favorites.service';
+import {
+  addFavorite,
+  fetchFavorites,
+  removeFavorite,
+} from '@/services/favorites/favorites.service';
+import { useFavoriteLookup } from '@/hooks/useFavoriteLookup';
 
 const Market = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | 'All'>('All');
@@ -32,6 +37,33 @@ const Market = () => {
   const [pageNo, setPageNo] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
+  // ✅ 즐겨찾기 상태 보관
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const { getMarketFavorite } = useFavoriteLookup(favorites);
+
+  // ✅ 최초 마운트 시 즐겨찾기 로드
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await fetchFavorites();
+        setFavorites(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.warn('[Market] fetchFavorites failed:', e);
+        setFavorites([]);
+      }
+    })();
+  }, []);
+
+  // ✅ 즐겨찾기 목록을 새로고침하는 헬퍼
+  const refreshFavorites = useCallback(async () => {
+    try {
+      const list = await fetchFavorites();
+      setFavorites(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.warn('[Market] refreshFavorites failed:', e);
+    }
+  }, []);
 
   // ✅ 페이지 단위로 호출 (mode: 'reset' | 'append')
   const fetchPage = useCallback(
@@ -84,27 +116,36 @@ const Market = () => {
     setFilters((prev) => ({ ...prev, [key]: value, pageNo: 1 }));
   };
 
-  // ⭐ 즐겨찾기 추가 (원본 유지)
+  // ✅ 카드에서 호출되는 즐겨찾기 토글
   const handleFavorite = async (item: any) => {
     try {
-      await addFavorite({
-        source: 'market',
-        itemId: item.id,
-        name: item.name,
-        grade: item.grade,
-        icon: item.icon,
-        currentPrice: item.marketInfo?.recentPrice ?? item.marketInfo?.currentMinPrice ?? 0,
-        previousPrice: item.marketInfo?.yDayAvgPrice ?? 0,
-        marketInfo: {
-          currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
-          yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
-          recentPrice: item.marketInfo?.recentPrice ?? 0,
-          tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
-        },
-      });
-      alert('즐겨찾기 추가 성공');
+      const existing = getMarketFavorite(item.id); // 있으면 Favorite(서버 UUID 포함), 없으면 null
+      if (existing) {
+        // 이미 즐겨찾기 → 제거
+        await removeFavorite(existing.id);
+      } else {
+        // 없으면 추가
+        await addFavorite({
+          source: 'market',
+          itemId: item.id,
+          name: item.name,
+          grade: item.grade,
+          icon: item.icon,
+          currentPrice: item.marketInfo?.recentPrice ?? item.marketInfo?.currentMinPrice ?? 0,
+          previousPrice: item.marketInfo?.yDayAvgPrice ?? 0,
+          marketInfo: {
+            currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
+            yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
+            recentPrice: item.marketInfo?.recentPrice ?? 0,
+            tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
+          },
+        });
+      }
+      // 토글 후 목록 새로고침
+      await refreshFavorites();
     } catch (err) {
-      console.error('❌ 즐겨찾기 추가 실패:', err);
+      console.error('❌ 즐겨찾기 토글 실패:', err);
+      alert('즐겨찾기 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -239,25 +280,31 @@ const Market = () => {
 
         {/* 결과 그리드 (원본 유지: filteredItems가 아닌 items 사용) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item, index) => (
-            <MarketItemCard
-              key={`${item.id}-${index}`}
-              item={{
-                id: item.id,
-                name: item.name,
-                grade: item.grade,
-                icon: item.icon,
-                quality: item.quality,
-                marketInfo: {
-                  currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
-                  yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
-                  recentPrice: item.marketInfo?.recentPrice ?? 0,
-                  tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
-                },
-              }}
-              onFavorite={handleFavorite}
-            />
-          ))}
+          {filteredItems.map((item, index) => {
+            // ✅ 각 아이템에 매칭되는 즐겨찾기 조회
+            const fav = getMarketFavorite(item.id);
+            return (
+              <MarketItemCard
+                key={`${item.id}-${index}`}
+                item={{
+                  id: item.id,
+                  name: item.name,
+                  grade: item.grade,
+                  icon: item.icon,
+                  quality: item.quality,
+                  marketInfo: {
+                    currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
+                    yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
+                    recentPrice: item.marketInfo?.recentPrice ?? 0,
+                    tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
+                  },
+                }}
+                onFavorite={handleFavorite}
+                isFavorite={!!fav} // ✅ 카드에 상태 전달
+                favoriteId={fav?.id ?? ''} // ✅ Alarm에 서버 UUID 전달 (없으면 빈 문자열)
+              />
+            );
+          })}
         </div>
 
         {/* 무한 스크롤 sentinel */}

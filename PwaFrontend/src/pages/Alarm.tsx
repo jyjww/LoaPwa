@@ -39,12 +39,37 @@ const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }:
 
   return (
     <AlertDialog>
-      <AlertDialogTrigger asChild>
+      {/* <AlertDialogTrigger asChild>
         <Button variant="outline" size="sm" className="ml-2">
           <Bell className="h-4 w-4 mr-1" />
           알림 설정
         </Button>
+      </AlertDialogTrigger> */}
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="알림 설정"
+          className={[
+            'p-0 sm:p-0 shrink-0 items-start justify-end',
+            'bg-transparent hover:bg-transparent focus-visible:ring-0',
+            '[&_svg]:!h-5 [&_svg]:!w-5', // 아이콘 크기統一
+            'group/bell', // 독립 hover 그룹명
+          ].join(' ')}
+        >
+          <Bell
+            className={[
+              'transition-all duration-150',
+              // 기본은 흐림, hover 시 초록 + 내부 채움 + 외곽선 제거
+              'text-muted-foreground',
+              'group-hover/bell:text-[var(--color-accent)]',
+              'group-hover/bell:[fill:currentColor]',
+              'group-hover/bell:[stroke:none]',
+            ].join(' ')}
+          />
+        </Button>
       </AlertDialogTrigger>
+
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>알림 설정</AlertDialogTitle>

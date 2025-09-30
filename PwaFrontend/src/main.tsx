@@ -1,48 +1,56 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import App from './App.tsx';
+import App from './App';
 
-const checkPWAInstall = () => {
+// --- PWA 설치 배너 플래그 갱신 (1회용) ---
+function updateInstallPromptFlag() {
   const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone; // iOS 대응
-  if (!isStandalone) {
-    localStorage.setItem('showInstallPrompt', 'true');
-  } else {
-    localStorage.removeItem('showInstallPrompt');
-  }
-};
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true;
 
-// PWA 설치 안내
-window.addEventListener('DOMContentLoaded', () => {
-  const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
   if (!isStandalone) localStorage.setItem('showInstallPrompt', 'true');
   else localStorage.removeItem('showInstallPrompt');
-});
-
-// 서비스워커 등록
-if ('serviceWorker' in navigator) {
-  if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_SW_DEV === 'true') {
-    // (선택) 개발용: 푸시만 테스트할 때
-    navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
-    caches?.keys?.().then((keys) => keys.forEach((k) => caches.delete(k)));
-    navigator.serviceWorker
-      .register('/sw-dev.js', { scope: '/push/' })
-      .then((reg) => console.log('DEV SW registered:', reg.scope))
-      .catch((err) => console.error('DEV SW register error', err));
-  } else if (import.meta.env.PROD) {
-    // 프로덕션: 캐싱/푸시 포함 정식 SW
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((reg) => console.log('SW registered:', reg.scope))
-      .catch((err) => console.error('SW register error', err));
-  }
 }
 
-window.addEventListener('DOMContentLoaded', checkPWAInstall);
+// DOM 로드 시 1회 실행
+window.addEventListener('DOMContentLoaded', updateInstallPromptFlag, { once: true });
 
-// React App 렌더링
+// --- Service Worker 등록/업데이트 ---
+if ('serviceWorker' in navigator) {
+  // 새 SW가 컨트롤러가 되면 1회만 새로고침 (무한루프 방지)
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!reloaded) {
+      reloaded = true;
+      location.reload();
+    }
+  });
+
+  (async () => {
+    try {
+      if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_SW_DEV === 'true') {
+        // 개발용: 푸시만 시험하고 싶을 때
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+        if ('caches' in self) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+        const reg = await navigator.serviceWorker.register('/sw-dev.js', { scope: '/push/' });
+        console.log('DEV SW registered:', reg.scope);
+      } else if (import.meta.env.PROD) {
+        // 프로덕션: 정식 SW (앱 전체 스코프)
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        console.log('SW registered:', reg.scope);
+      }
+    } catch (err) {
+      console.error('SW register error', err);
+    }
+  })();
+}
+
+// --- React App 렌더링 ---
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
