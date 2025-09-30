@@ -48,23 +48,23 @@ jobs:
               - 'shared/**'
               - 'Backend/Dockerfile.prod'
 
-      - name: Debug GitHub context (quick)
-        run: |
-          echo "github.repository=${{ github.repository }}"
-          echo "github.ref=${{ github.ref }}"
+      - id: oidc
+        name: Get OIDC token via toolkit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const aud = `//iam.googleapis.com/${{ secrets.GCP_WORKLOAD_IDP }}`;
+            const token = await core.getIDToken(aud);
+            core.setOutput('token', token);
 
-      - name: Dump OIDC claims (repository/ref 확인)
+      - name: Dump OIDC claims (repo/ref 확인)
         shell: bash
         run: |
-          set -euo pipefail
-          # audience는 보통 //iam.googleapis.com/ + provider 리소스
-          AUDIENCE="//iam.googleapis.com/${{ secrets.GCP_WORKLOAD_IDP }}"
-          # OIDC 토큰 요청
-          RESP=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUDIENCE}")
-          IDTOKEN=$(echo "$RESP" | jq -r '.value')
-          # JWT payload 디코딩
-          PAYLOAD=$(echo "$IDTOKEN" | cut -d'.' -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | jq .)
+          set -eo pipefail
+          echo "github.repository=${{ github.repository }}"
+          echo "github.ref=${{ github.ref }}"
+          PAYLOAD=$(echo '${{ steps.oidc.outputs.token }}' \
+            | awk -F. '{print $2}' | tr '_-' '/+' | base64 -d 2>/dev/null | jq .)
           echo "==== OIDC JWT payload ===="
           echo "$PAYLOAD"
           echo "repo  : $(echo "$PAYLOAD" | jq -r '.repository')"
