@@ -15,7 +15,7 @@ import {
   fetchFavorites,
   removeFavorite,
 } from '@/services/favorites/favorites.service';
-import { makeAuctionKey, type CategoryKey } from '@shared/utils/matchAuctionKey';
+import { makeAuctionKey, type CategoryKey } from '@shared/matchAuctionKey';
 import { useFavoriteLookup } from '@/hooks/useFavoriteLookup';
 
 type CanonOption = { name: string; value: number; displayValue: number };
@@ -161,6 +161,15 @@ const AuctionHouse = () => {
     return 'generic';
   };
 
+  const toAuctionLike = (item: any, canonOptions: CanonOption[]) => ({
+    name: item.name,
+    grade: item.grade,
+    tier: item.tier ?? null,
+    quality: item.quality ?? null,
+    // hook은 value만 쓰므로 value만 넘겨주면 됨
+    options: canonOptions.map((o) => ({ name: o.name, value: o.value })),
+  });
+
   // ✅ 즐겨찾기 토글 (matchKey/옵션 정규화 통일)
   const handleToggleFavorite = async (item: any) => {
     try {
@@ -177,7 +186,7 @@ const AuctionHouse = () => {
         category,
       );
 
-      const existing = getAuctionFavorite(matchKey);
+      const existing = getAuctionFavorite(toAuctionLike(item, canonOptions));
       if (existing) {
         await removeFavorite(existing.id);
       } else {
@@ -277,7 +286,7 @@ const AuctionHouse = () => {
 
             const rowKey = `${matchKey}-${uniqueness}`;
 
-            const fav = getAuctionFavorite(matchKey);
+            const fav = getAuctionFavorite(toAuctionLike(item, canonOptions));
 
             return (
               <ItemCard

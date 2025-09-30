@@ -9,7 +9,7 @@ import { CreateFavoriteDto } from './dto/create-favorite.dto';
 import { shouldTriggerAlert, type AlertCandidate } from '@/favorites/alert.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createHash } from 'crypto';
-import { makeAuctionKey, type CategoryKey } from '@shared/utils/matchAuctionKey';
+import { makeAuctionKey, type CategoryKey } from '@shared/matchAuctionKey';
 
 @Injectable()
 export class FavoritesService {

@@ -1,7 +1,7 @@
 // src/hooks/useFavoriteLookup.ts
 import { useMemo } from 'react';
-import { makeAuctionKey } from '@shared/utils/matchAuctionKey';
-export type { CategoryKey } from '@shared/utils/matchAuctionKey';
+import { makeAuctionKey } from '@shared/matchAuctionKey';
+export type { CategoryKey } from '@shared/matchAuctionKey';
 
 type Favorite = {
   id: string;
