@@ -59,17 +59,30 @@ jobs:
 
       - name: Dump OIDC claims (repo/ref 확인)
         shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
-          set -eo pipefail
+          set -euo pipefail
           echo "github.repository=${{ github.repository }}"
           echo "github.ref=${{ github.ref }}"
-          PAYLOAD=$(echo '${{ steps.oidc.outputs.token }}' \
-            | awk -F. '{print $2}' | tr '_-' '/+' | base64 -d 2>/dev/null | jq .)
-          echo "==== OIDC JWT payload ===="
-          echo "$PAYLOAD"
-          echo "repo  : $(echo "$PAYLOAD" | jq -r '.repository')"
-          echo "ref   : $(echo "$PAYLOAD" | jq -r '.ref')"
-          echo "issuer: $(echo "$PAYLOAD" | jq -r '.iss')"
+
+          python3 - <<'PY'
+          import os, json, base64, sys
+          tok = os.environ.get("OIDC_TOKEN", "")
+          if not tok or tok.count('.') < 2:
+              print("!! invalid OIDC token")
+              sys.exit(0)
+          seg = tok.split('.')[1]
+          # URL-safe + padding fix
+          seg += '=' * (-len(seg) % 4)
+          payload = base64.urlsafe_b64decode(seg.encode()).decode()
+          print("==== OIDC JWT payload ====")
+          print(payload)
+          data = json.loads(payload)
+          print("repo  :", data.get("repository"))
+          print("ref   :", data.get("ref"))
+          print("issuer:", data.get("iss"))
+          PY
 
       # 1) GCP OIDC 인증
       - name: Auth to GCP
