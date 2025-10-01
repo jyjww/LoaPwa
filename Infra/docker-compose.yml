@@ -21,11 +21,12 @@ services:
   server:
     build:
       context: ..
-      dockerfile: Backend/Dockerfile
+      dockerfile: Backend/Dockerfile.prod
     container_name: loa-server
     command: npm run start:dev
     ports:
       - '4000:4000'
+      # - '8080:8080'
     env_file:
       - ../Backend/.env.development
     environment:

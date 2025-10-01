@@ -21,6 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  PROJECT_NUMBER: 25420661450
   PROJECT_ID: loapwa-d0c74
   REGION: asia-northeast3
   AR_REPO: loa-pwa
@@ -124,7 +125,7 @@ jobs:
       - name: Deploy to Cloud Run
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
-          API_URL="https://${SERVICE}-${REGION}-a.run.app"
+          API_URL="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
           GOOGLE_CALLBACK_URL="${API_URL}/auth/google/callback"
 
           gcloud run deploy "$SERVICE" \
