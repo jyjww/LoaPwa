@@ -25,6 +25,7 @@ const isProd = process.env.NODE_ENV === 'production';
       envFilePath: isProd ? undefined : '.env.development',
       validationSchema: Joi.object({
         NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
+        MIGRATE_ON_BOOT: Joi.string().valid('0', '1').default('0'),
 
         // ▶️ DB: prod에서는 개별 항목 필수, dev는 DATABASE_URL 허용
         DATABASE_URL: Joi.string().uri().allow('').optional(),
@@ -34,8 +35,16 @@ const isProd = process.env.NODE_ENV === 'production';
           otherwise: Joi.optional(),
         }),
         DB_PORT: Joi.number().integer().default(5432),
-        DB_NAME: Joi.string().when('NODE_ENV', { is: 'production', then: Joi.required(), otherwise: Joi.optional() }),
-        DB_USER: Joi.string().when('NODE_ENV', { is: 'production', then: Joi.required(), otherwise: Joi.optional() }),
+        DB_NAME: Joi.string().when('NODE_ENV', {
+          is: 'production',
+          then: Joi.required(),
+          otherwise: Joi.optional(),
+        }),
+        DB_USER: Joi.string().when('NODE_ENV', {
+          is: 'production',
+          then: Joi.required(),
+          otherwise: Joi.optional(),
+        }),
         DB_PASSWORD: Joi.string().allow('').optional(), // 시크릿으로 주입 권장
 
         // OAuth / 외부키
@@ -86,7 +95,8 @@ const isProd = process.env.NODE_ENV === 'production';
           database: cfg.get<string>('DB_NAME'),
           autoLoadEntities: true,
           synchronize: false, // 운영은 false 권장
-          // ssl: false, // Cloud SQL unix socket이면 보통 불필요
+          migrationsRun: false, // main.ts 에서 제어
+          migrations: [__dirname + '/migrations/*.{js,ts}'],
         };
       },
     }),

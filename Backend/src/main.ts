@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { DataSource } from 'typeorm';
 import cookieParser from 'cookie-parser';
 import 'reflect-metadata';
 
@@ -7,6 +8,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'], // ← debug 로그가 보여야 함
   });
+
+  const dataSource = app.get(DataSource);
+  if (process.env.MIGRATE_ON_BOOT === '1') {
+    console.log('[BOOT] Running TypeORM migrations...');
+    await dataSource.runMigrations();
+  }
 
   app.use(cookieParser());
 
