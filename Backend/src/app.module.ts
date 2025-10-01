@@ -96,7 +96,8 @@ const isProd = process.env.NODE_ENV === 'production';
           autoLoadEntities: true,
           synchronize: false, // 운영은 false 권장
           migrationsRun: false, // main.ts 에서 제어
-          migrations: [__dirname + '/migrations/*.{js,ts}'],
+          migrations: [__dirname + '/migrations/*.js'],
+          schema: 'public',
         };
       },
     }),
