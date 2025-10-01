@@ -74,6 +74,7 @@ const isProd = process.env.NODE_ENV === 'production';
       useFactory: (cfg: ConfigService) => {
         const prod = cfg.get<'development' | 'test' | 'production'>('NODE_ENV') === 'production';
         const url = cfg.get<string>('DATABASE_URL');
+        const syncOnBoot = cfg.get<string>('SYNC_ON_BOOT') === '1';
 
         if (!prod && url) {
           // 로컬/개발: DATABASE_URL로 간단히
@@ -94,7 +95,7 @@ const isProd = process.env.NODE_ENV === 'production';
           password: cfg.get<string>('DB_PASSWORD'),
           database: cfg.get<string>('DB_NAME'),
           autoLoadEntities: true,
-          synchronize: false, // 운영은 false 권장
+          synchronize: syncOnBoot, // 운영은 false 권장
           migrationsRun: false, // main.ts 에서 제어
           migrations: [__dirname + '/migrations/*.js'],
           schema: 'public',
