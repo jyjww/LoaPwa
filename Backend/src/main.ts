@@ -10,6 +10,15 @@ async function bootstrap() {
   });
 
   const dataSource = app.get(DataSource);
+  const [{ current_database, current_user, current_schema, search_path }] = await dataSource.query(`
+    select
+      current_database(),
+      current_user,
+      current_schema(),
+      current_setting('search_path') as search_path
+  `);
+  console.log('[DB]', { current_database, current_user, current_schema, search_path });
+
   if (process.env.MIGRATE_ON_BOOT === '1') {
     console.log('[BOOT] Running TypeORM migrations...');
     await dataSource.runMigrations();
