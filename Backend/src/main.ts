@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { existsSync, readdirSync } from 'fs';
 import { DataSource } from 'typeorm';
 import cookieParser from 'cookie-parser';
 import 'reflect-metadata';
@@ -18,6 +19,16 @@ async function bootstrap() {
       current_setting('search_path') as search_path
   `);
   console.log('[DB]', { current_database, current_user, current_schema, search_path });
+
+  console.log('[MIGR] __dirname =', __dirname);
+  console.log('[MIGR] dir exists?', existsSync(__dirname + '/migrations'));
+  if (existsSync(__dirname + '/migrations')) {
+    console.log('[MIGR] files =', readdirSync(__dirname + '/migrations'));
+  }
+  console.log(
+    '[MIGR] DS.migrations =',
+    dataSource.migrations?.map((m) => m.name),
+  );
 
   if (process.env.MIGRATE_ON_BOOT === '1') {
     console.log('[BOOT] Running TypeORM migrations...');
