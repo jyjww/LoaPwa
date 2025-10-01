@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://localhost:4000', // ✅ NestJS 서버 주소
-});
+import api from '@/services/axiosInstance';
 
 export interface BaseSearchDto {
   query?: string;
