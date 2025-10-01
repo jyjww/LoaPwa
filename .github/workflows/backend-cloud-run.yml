@@ -147,6 +147,7 @@ jobs:
               DB_PORT=5432,
               DB_NAME=loadb,
               DB_USER=yzroot,
+              MIGRATE_ON_BOOT=1,
               FCM_PROJECT_ID=${PROJECT_ID},
               FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},
               GOOGLE_CLOUD_PROJECT=${PROJECT_ID},
