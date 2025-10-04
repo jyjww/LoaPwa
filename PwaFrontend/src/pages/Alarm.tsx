@@ -9,9 +9,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { Bell } from 'lucide-react';
+import { Bell, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { updateFavoriteAlarm } from '@/services/favorites/favorites.service';
 
@@ -23,29 +24,31 @@ interface AlarmProps {
 }
 
 const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }: AlarmProps) => {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
   const [enabled, setEnabled] = useState(defaultIsAlerted);
   const [price, setPrice] = useState(defaultTargetPrice);
 
-  useEffect(() => {
-    setEnabled(defaultIsAlerted);
-  }, [defaultIsAlerted]);
-  useEffect(() => {
-    setPrice(defaultTargetPrice);
-  }, [defaultTargetPrice]);
+  useEffect(() => setEnabled(defaultIsAlerted), [defaultIsAlerted]);
+  useEffect(() => setPrice(defaultTargetPrice), [defaultTargetPrice]);
+
+  const goHelp = () => {
+    setOpen(false);
+    // 닫힘 애니메이션 고려해 아주 짧게 딜레이(선택)
+    setTimeout(() => navigate('/pushhelp'), 0);
+  };
 
   const handleSave = async () => {
     try {
-      await updateFavoriteAlarm(favoriteId, {
-        isAlerted: enabled,
-        targetPrice: price,
-      });
+      await updateFavoriteAlarm(favoriteId, { isAlerted: enabled, targetPrice: price });
     } catch (err) {
       console.error(err);
     }
   };
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button
           variant="ghost"
@@ -54,30 +57,36 @@ const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }:
           className={[
             'p-0 sm:p-0 shrink-0 items-start justify-end',
             'bg-transparent hover:bg-transparent focus-visible:ring-0',
-            '[&_svg]:!h-5 [&_svg]:!w-5', // 아이콘 크기統一
-            'group/bell', // 독립 hover 그룹명
+            '[&_svg]:!h-5 [&_svg]:!w-5',
+            'group/bell',
           ].join(' ')}
         >
           <Bell
             className={[
               'transition-all duration-150',
               enabled
-                ? // ✅ 켜짐: 항상 강조색 + 채움
-                  'text-[var(--color-accent)] [fill:currentColor] [stroke:none]'
-                : // ⬇︎ 꺼짐: 흐림 + hover 시만 강조
-                  'text-muted-foreground group-hover/bell:text-[var(--color-accent)] group-hover/bell:[fill:currentColor] group-hover/bell:[stroke:none]',
+                ? 'text-[var(--color-accent)] [fill:currentColor] [stroke:none]'
+                : 'text-muted-foreground group-hover/bell:text-[var(--color-accent)] group-hover/bell:[fill:currentColor] group-hover/bell:[stroke:none]',
             ].join(' ')}
           />
         </Button>
       </AlertDialogTrigger>
 
-      <AlertDialogContent>
-        <AlertDialogHeader>
+      {/* ✅ aria-describedby를 Content에, Description에는 id를 부여 */}
+      <AlertDialogContent aria-describedby="alarm-desc">
+        {/* ✅ 헤더를 좌우 정렬로 바꾸고, 우측에 톱니 버튼 배치 */}
+        <AlertDialogHeader className="flex items-center justify-between gap-2">
           <AlertDialogTitle>알림 설정</AlertDialogTitle>
-          <AlertDialogDescription aria-describedby="alarm">
-            즐겨찾기 항목에 대한 가격 알림을 켜거나 끌 수 있고, 목표 가격을 지정할 수 있습니다.
-          </AlertDialogDescription>
+
+          {/* 새 탭 X, 내부 네비게이션 */}
+          <Button variant="ghost" size="icon" title="알림 설정 방법" onClick={goHelp}>
+            <Settings className="h-4 w-4" />
+          </Button>
         </AlertDialogHeader>
+
+        <AlertDialogDescription id="alarm-desc">
+          즐겨찾기 항목에 대한 가격 알림을 켜거나 끌 수 있고, 목표 가격을 지정할 수 있습니다.
+        </AlertDialogDescription>
 
         {/* 🔹 알림 조건 UI */}
         <div className="space-y-3">

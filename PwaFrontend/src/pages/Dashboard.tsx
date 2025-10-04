@@ -135,10 +135,13 @@ const Dashboard = () => {
                 <Download className="h-4 w-4 text-primary" />
                 홈화면에 추가하고 더 편리하게 이용하세요!
               </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={handleDismiss}>
-                닫기
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="text-xs" onClick={handleDismiss}>
+                  닫기
+                </Button>
+              </div>
             </CardHeader>
+
             <CardContent className="flex items-center justify-between gap-3">
               {isiOS ? (
                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -149,9 +152,15 @@ const Dashboard = () => {
                   <p className="text-xs sm:text-sm text-muted-foreground">
                     설치하면 더 빠르게 접근할 수 있어요.
                   </p>
-                  <Button size="sm" onClick={handleInstallClick}>
-                    설치
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={handleInstallClick}>
+                      설치
+                    </Button>
+                    {/* 여기에도 간단 링크 추가 가능 */}
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/push-help">알림 설정</Link>
+                    </Button>
+                  </div>
                 </>
               )}
             </CardContent>
