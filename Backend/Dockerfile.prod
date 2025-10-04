@@ -6,15 +6,10 @@ WORKDIR /app/Backend
 COPY Backend/package*.json ./
 RUN npm ci
 
-# tsconfig.base.json 경로 맞추기
-WORKDIR /app
-COPY tsconfig.base.json ./tsconfig.base.json
-
 # 소스 복사 (src/migrations 포함되어야 dist로 빌드됨)
-COPY Backend ./Backend
+COPY Backend ./
 
 # 빌드
-WORKDIR /app/Backend
 RUN npm run build
 
 # 2) Run stage (프로덕션 실행)
@@ -27,12 +22,8 @@ ENV TZ=Asia/Seoul
 COPY --from=builder /app/Backend/package*.json ./
 RUN npm ci --omit=dev
 
-# 실행 산출물 복사 (dist에 migrations 폴더가 있어야 함)
+# 실행 산출물
 COPY --from=builder /app/Backend/dist ./dist
-
-# (선택) 비루트로 실행
-# RUN addgroup -S app && adduser -S app -G app
-# USER app
 
 EXPOSE 8080
 ENV PORT=8080
