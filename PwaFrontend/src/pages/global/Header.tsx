@@ -1,6 +1,6 @@
 // src/components/Header.tsx
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, User, Moon, Sun } from 'lucide-react';
+import { Bell, User, Moon, Sun, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoLight from '@/assets/icon.svg';
 import logoDark from '@/assets/icon_dark.svg';
@@ -19,6 +19,12 @@ const Header = () => {
 
   // 알림 인박스(뱃지/목록)
   const { unread, items, resetUnread } = usePushInbox();
+
+  const goHelp = () => {
+    setOpen(false);
+    // 닫힘 애니메이션 고려해 아주 짧게 딜레이(선택)
+    setTimeout(() => navigate('/push-help'), 0);
+  };
 
   // 푸시 ON/OFF 훅(권한/에러/로딩 포함)
   const { enabled, permission, loading, error, enable, disable } = usePushToggle();
@@ -191,8 +197,11 @@ const Header = () => {
       {/* 알림 모달 */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader className="p-5 pb-3">
+          <DialogHeader className="p-5 pb-3 flex-row items-center justify-between gap-2 space-y-0 text-left">
             <DialogTitle>알림</DialogTitle>
+            <Button variant="ghost" size="icon" title="알림 설정 방법" onClick={goHelp}>
+              <Settings className="h-4 w-4" />
+            </Button>
           </DialogHeader>
 
           {/* 토글 블록 */}

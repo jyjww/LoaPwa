@@ -9,10 +9,9 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { Bell, Settings } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { updateFavoriteAlarm } from '@/services/favorites/favorites.service';
 
@@ -25,19 +24,12 @@ interface AlarmProps {
 
 const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }: AlarmProps) => {
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
 
   const [enabled, setEnabled] = useState(defaultIsAlerted);
   const [price, setPrice] = useState(defaultTargetPrice);
 
   useEffect(() => setEnabled(defaultIsAlerted), [defaultIsAlerted]);
   useEffect(() => setPrice(defaultTargetPrice), [defaultTargetPrice]);
-
-  const goHelp = () => {
-    setOpen(false);
-    // 닫힘 애니메이션 고려해 아주 짧게 딜레이(선택)
-    setTimeout(() => navigate('/pushhelp'), 0);
-  };
 
   const handleSave = async () => {
     try {
@@ -77,11 +69,6 @@ const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }:
         {/* ✅ 헤더를 좌우 정렬로 바꾸고, 우측에 톱니 버튼 배치 */}
         <AlertDialogHeader className="flex items-center justify-between gap-2">
           <AlertDialogTitle>알림 설정</AlertDialogTitle>
-
-          {/* 새 탭 X, 내부 네비게이션 */}
-          <Button variant="ghost" size="icon" title="알림 설정 방법" onClick={goHelp}>
-            <Settings className="h-4 w-4" />
-          </Button>
         </AlertDialogHeader>
 
         <AlertDialogDescription id="alarm-desc">
