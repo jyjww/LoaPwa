@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const LoginSuccess = () => {
-  console.log('✅ LoginSuccess 컴포넌트 렌더링됨');
   const navigate = useNavigate();
   const { search } = useLocation();
   const ran = useRef(false); // 🔒 StrictMode 2회 실행 가드 (개발용)
@@ -11,13 +10,9 @@ const LoginSuccess = () => {
     if (ran.current) return;
     ran.current = true;
 
-    console.log('🎫 effect 실행');
     const params = new URLSearchParams(search);
-    console.log('params:', params.toString());
-
     const tokenFromUrl = params.get('accessToken');
     const tokenInStorage = localStorage.getItem('access_token');
-    console.log('🎫 accessToken from URL:', tokenFromUrl);
 
     if (tokenFromUrl) {
       // 1) 토큰 저장

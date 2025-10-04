@@ -12,7 +12,7 @@ import {
   normalizeAuctionKey,
   guessCategory,
   type CategoryKey,
-} from '@shared/utils/matchAuctionKey';
+} from '@shared/matchAuctionKey';
 import {
   allowedFirstOptionsForCategory,
   buildEtcOptionDtos,

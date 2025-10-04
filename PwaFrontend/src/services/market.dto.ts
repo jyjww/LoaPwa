@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://localhost:4000', // ✅ NestJS 서버 주소
-});
+import api from '@/services/axiosInstance';
 
 export interface BaseSearchDto {
   query?: string;
@@ -16,7 +12,9 @@ export interface BaseSearchDto {
 
 export interface MarketSearchDto extends BaseSearchDto {}
 
-export const searchMarket = async (dto: MarketSearchDto) => {
-  const res = await api.post('/markets/search', dto);
+export const searchMarket = async (dto: MarketSearchDto, opts?: { signal?: AbortSignal }) => {
+  const res = await api.post('/markets/search', dto, {
+    signal: opts?.signal, // ← 여기만 추가
+  });
   return res.data; // { pageNo, pageSize, totalCount, items: [...] }
 };

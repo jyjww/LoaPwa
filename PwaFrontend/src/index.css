@@ -1,73 +1,96 @@
+/* Tailwind v4 base */
 @import 'tailwindcss';
 @plugin "tailwindcss-animate";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 🎮 Lost Ark Gaming Design System - Tailwind v4 방식 (HEX 버전) */
+/* =========================
+   🎨 Color Palette (Light / Dark)
+   - darkMode: 'class' 이므로 <html class="dark"> 일 때만 다크 적용
+   - 기본은 라이트(:root)
+   ========================= */
+
+/* Light (기본) */
 @theme {
-  /* Base Colors */
-  --color-background: #1a1a1a;
-  --color-foreground: #ffffff;
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
 
-  --color-card: #1f1f1f;
-  --color-card-foreground: #ffffff;
-
-  --color-popover: #242424;
-  --color-popover-foreground: #ffffff;
-
-  /* Primary / Secondary */
-  --color-primary: #0055ff;
+  --color-primary: #335cff; /* 소프트 블루 */
   --color-primary-foreground: #ffffff;
 
-  --color-secondary: #ffaa00;
-  --color-secondary-foreground: #1a1a1a;
+  --color-secondary: #d6deff;
+  --color-secondary-foreground: #0f172a;
 
-  /* Muted / Accent / Destructive */
-  --color-muted: #292929;
-  --color-muted-foreground: #b3b3b3;
+  --color-muted: #e5e7eb;
+  --color-muted-foreground: #6b7280;
 
   --color-accent: #80ff66;
-  --color-accent-foreground: #1a1a1a;
+  --color-accent-foreground: #0f172a;
 
-  --color-destructive: #e61919;
+  --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
 
-  /* Border / Input / Ring */
-  --color-border: #333333;
-  --color-input: #292929;
-  --color-ring: #0055ff;
+  --color-border: #e5e7eb;
+  --color-input: #eef2f7;
+  --color-ring: #335cff;
+
+  --gradient-primary: linear-gradient(135deg, #335cff 0%, #2849cc 100%);
+  --gradient-card: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  --gradient-accent: linear-gradient(135deg, #80ff66 0%, #66cc52 100%);
 
   /* Radius */
   --radius: 0.75rem;
 
-  /* Mobile Colors */
-  --color-mobile-blue: #0055ff;
-  --color-mobile-green: #80ff66;
-  --color-mobile-orange: #ffaa00;
-  --color-mobile-dark: #1a1a1a;
-
-  /* Sidebar */
-  --color-sidebar-background: #1a1c20;
-  --color-sidebar-foreground: #f6f1d9;
-  --color-sidebar-primary: #f2cf40;
-  --color-sidebar-primary-foreground: #141519;
-  --color-sidebar-accent: #24262c;
-  --color-sidebar-accent-foreground: #f6f1d9;
-  --color-sidebar-border: #33363d;
-  --color-sidebar-ring: #f2cf40;
-
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #0055ff 0%, #0047cc 100%);
-  --gradient-card: linear-gradient(145deg, #1f1f1f 0%, #1a1a1a 100%);
-  --gradient-accent: linear-gradient(135deg, #80ff66 0%, #66cc52 100%);
-  --gradient-gaming: linear-gradient(135deg, #0055ff 0%, #003399 100%);
-
-  /* Animations */
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --glow-animation: 0 0 20px rgba(0, 85, 255, 0.3);
+  /* (옵션) 사이드바 등 추가 토큰이 필요하면 여기에 이어서 선언 */
 }
 
+/* Dark */
+.dark {
+  --color-background: #0b1220; /* 아주 딥 네이비 */
+  --color-foreground: #e6ebf5; /* 밝은 청백 */
+
+  --color-card: #0f1629; /* 배경보다 살짝 밝은 카드 */
+  --color-card-foreground: #e6ebf5;
+
+  --color-popover: #0e1526;
+  --color-popover-foreground: #e6ebf5;
+
+  /* 라이트의 #335cff 유지, 다크에서 충분히 보이는 톤 */
+  --color-primary: #5e7dff; /* 살짝 밝힌 블루로 대비 향상 */
+  --color-primary-foreground: #07112a;
+
+  /* 라이트의 연한 블루를 다크용 중간 톤으로 조정 */
+  --color-secondary: #2a3b66; /* 미드 블루-그레이 */
+  --color-secondary-foreground: #e6ebf5;
+
+  --color-muted: #15213a; /* 칩/구분 배경 */
+  --color-muted-foreground: #a7b2c9; /* 보조 텍스트 */
+
+  /* 브랜드 라임 유지: 다크 배경에서도 시인성 OK */
+  --color-accent: #80ff66;
+  --color-accent-foreground: #0b1220;
+
+  --color-destructive: #ff6464;
+  --color-destructive-foreground: #1a0e0e;
+
+  --color-border: #1b2946; /* 테두리/구분선 */
+  --color-input: #101a31; /* 인풋 배경 */
+  --color-ring: #5e7dff; /* 포커스 링 */
+
+  --gradient-primary: linear-gradient(135deg, #405fff 0%, #2b45e0 100%);
+  --gradient-card: linear-gradient(145deg, #0f1629 0%, #0b1220 100%);
+  --gradient-accent: linear-gradient(135deg, #80ff66 0%, #66cc52 100%);
+}
+
+/* =========================
+   Base resets
+   ========================= */
 @layer base {
   body {
     @apply bg-background text-foreground;
@@ -81,6 +104,9 @@
   }
 }
 
+/* =========================
+   Components helpers
+   ========================= */
 @layer components {
   .mobile-card {
     background: var(--gradient-card);
@@ -97,23 +123,14 @@
   }
 
   .gaming-glow {
-    box-shadow: var(--glow-animation);
-  }
-
-  .gaming-card {
-    background: var(--gradient-card);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--color-border);
-  }
-
-  .gaming-gradient {
-    background: var(--gradient-gaming);
+    /* 라이트 팔레트에 맞춰 은은하게 */
+    box-shadow: 0 0 20px rgba(0, 35, 167, 0.25);
   }
 
   .filter-dropdown {
-    background: var(--color-background);
+    background: var(--color-card);
     border: 1px solid var(--color-border);
-    border-radius: 0.375rem; /* Tailwind rounded-md */
+    border-radius: 0.375rem; /* rounded-md */
     padding: 0.25rem 0.5rem;
   }
 }

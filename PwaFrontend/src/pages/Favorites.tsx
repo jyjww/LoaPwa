@@ -187,7 +187,9 @@ const Favorites = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Target Price</DialogTitle>
-              <DialogDescription>Set a new target price for {editingItem?.name}</DialogDescription>
+              <DialogDescription aria-describedby="newtarget">
+                Set a new target price for {editingItem?.name}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <Input
@@ -261,27 +263,25 @@ const FavoriteSection = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {alertedItems.map((raw) => {
           const item = raw.source === 'auction' ? normalizeAuctionFavorite(raw) : raw;
-
-          console.log(
-            '[FavoriteSection] alerted=',
-            alertedItems.length,
-            'tracked=',
-            trackedItems.length,
-          );
-
           return (
             <div key={item.id} className="space-y-2">
               {item.source === 'auction' ? (
-                <ItemCard item={item} isFavorite />
+                <ItemCard
+                  item={item}
+                  isFavorite
+                  favoriteId={item.id}
+                  showAlarm
+                  onFavorite={() => {}}
+                />
               ) : (
-                <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+                <MarketItemCard item={item} isFavorite favoriteId={item.id} onFavorite={() => {}} />
               )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
-                  Edit Target
+                  알림 수정
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
-                  Remove
+                  삭제
                 </Button>
               </div>
             </div>
@@ -290,22 +290,29 @@ const FavoriteSection = ({
       </div>
     )}
 
+    {/* 알림 설정이 되지 않은 즐겨찾기만 된 item 로딩 */}
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
       {trackedItems.map((raw) => {
         const item = raw.source === 'auction' ? normalizeAuctionFavorite(raw) : raw;
         return (
           <div key={item.id} className="space-y-2">
             {item.source === 'auction' ? (
-              <ItemCard item={item} isFavorite />
+              <ItemCard
+                item={item}
+                isFavorite
+                favoriteId={item.id}
+                showAlarm
+                onFavorite={() => {}}
+              />
             ) : (
-              <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+              <MarketItemCard item={item} isFavorite favoriteId={item.id} onFavorite={() => {}} />
             )}
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
-                Edit Target
+                알림 수정
               </Button>
               <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
-                Remove
+                삭제
               </Button>
             </div>
           </div>

@@ -1,17 +1,23 @@
-import { Controller, Post, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Post, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { FcmService } from './fcm.service';
+import { JwtAuthGuard } from '@/auth/jwt.guard';
 
 @Controller('fcm')
 export class FcmController {
   constructor(private readonly fcmService: FcmService) {}
 
   @Post('register')
-  async register(@Body() body: { userId: string; token: string }) {
-    return this.fcmService.registerToken(body.userId, body.token);
+  @UseGuards(JwtAuthGuard)
+  async register(@Req() req, @Body('token') token: string) {
+    // userId를 바디로 받지 않고, 인증된 사용자에서 가져옴
+    await this.fcmService.registerToken(req.user.id, token);
+    return { ok: true };
   }
 
-  @Delete(':token')
-  async unregister(@Param('token') token: string) {
-    return this.fcmService.unregisterToken(token);
+  @Post('unregister')
+  @UseGuards(JwtAuthGuard)
+  async unregister(@Req() req, @Body('token') token: string) {
+    await this.fcmService.unregisterToken(token);
+    return { ok: true };
   }
 }
