@@ -19,10 +19,13 @@ interface MarketItemCardProps {
       recentPrice?: number;
       tradeRemainCount?: number;
     };
+    isAlerted?: boolean;
+    targetPrice?: number | null;
   };
   onFavorite?: (item: any) => void;
   isFavorite?: boolean;
   favoriteId?: string;
+  showAlarm?: boolean;
 }
 
 const MarketItemCard = ({
@@ -30,6 +33,7 @@ const MarketItemCard = ({
   onFavorite,
   isFavorite = false,
   favoriteId,
+  showAlarm,
 }: MarketItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
   // const location = useLocation();
@@ -105,7 +109,14 @@ const MarketItemCard = ({
               />
             </Button>
 
-            {favoriteId ? <Alarm favoriteId={favoriteId} /> : null}
+            {(showAlarm || isFaved) && (
+              <Alarm
+                favoriteId={favoriteId ?? ''}
+                isFavorite={true}
+                defaultIsAlerted={Boolean(item.isAlerted)}
+                defaultTargetPrice={Number(item.targetPrice) || 0}
+              />
+            )}
           </div>
         </div>
       </CardHeader>

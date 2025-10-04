@@ -2,7 +2,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, User, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import logo from '@/assets/logo.png';
+import logoLight from '@/assets/icon.svg';
+import logoDark from '@/assets/icon_dark.svg';
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { usePushInbox } from '@/hooks/usePushInbox';
@@ -128,7 +129,12 @@ const Header = () => {
       <div className="max-w-6xl mx-auto flex items-center justify-between p-3 sm:p-4">
         {/* 좌측 로고 */}
         <Link to="/" className="font-bold text-2xl text-primary">
-          <img src={logo} alt="로아 알리미 로고" width={40} height={40} />
+          <img
+            src={effectiveTheme === 'dark' ? logoDark : logoLight}
+            alt="로아 알리미 로고"
+            width={40}
+            height={40}
+          />
         </Link>
 
         {/* 우측: 테마 토글 + 벨 + 로그인 */}

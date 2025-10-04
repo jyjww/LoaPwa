@@ -12,18 +12,26 @@ import {
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { updateFavoriteAlarm } from '@/services/favorites/favorites.service';
 
 interface AlarmProps {
   favoriteId: string;
   defaultTargetPrice?: number;
   defaultIsAlerted?: boolean;
+  isFavorite: boolean;
 }
 
 const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }: AlarmProps) => {
   const [enabled, setEnabled] = useState(defaultIsAlerted);
   const [price, setPrice] = useState(defaultTargetPrice);
+
+  useEffect(() => {
+    setEnabled(defaultIsAlerted);
+  }, [defaultIsAlerted]);
+  useEffect(() => {
+    setPrice(defaultTargetPrice);
+  }, [defaultTargetPrice]);
 
   const handleSave = async () => {
     try {
@@ -31,20 +39,13 @@ const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }:
         isAlerted: enabled,
         targetPrice: price,
       });
-      console.log('✅ 알림 설정 저장 완료');
     } catch (err) {
-      console.error('❌ 알림 설정 실패:', err);
+      console.error(err);
     }
   };
 
   return (
     <AlertDialog>
-      {/* <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="ml-2">
-          <Bell className="h-4 w-4 mr-1" />
-          알림 설정
-        </Button>
-      </AlertDialogTrigger> */}
       <AlertDialogTrigger asChild>
         <Button
           variant="ghost"
@@ -60,11 +61,11 @@ const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }:
           <Bell
             className={[
               'transition-all duration-150',
-              // 기본은 흐림, hover 시 초록 + 내부 채움 + 외곽선 제거
-              'text-muted-foreground',
-              'group-hover/bell:text-[var(--color-accent)]',
-              'group-hover/bell:[fill:currentColor]',
-              'group-hover/bell:[stroke:none]',
+              enabled
+                ? // ✅ 켜짐: 항상 강조색 + 채움
+                  'text-[var(--color-accent)] [fill:currentColor] [stroke:none]'
+                : // ⬇︎ 꺼짐: 흐림 + hover 시만 강조
+                  'text-muted-foreground group-hover/bell:text-[var(--color-accent)] group-hover/bell:[fill:currentColor] group-hover/bell:[stroke:none]',
             ].join(' ')}
           />
         </Button>

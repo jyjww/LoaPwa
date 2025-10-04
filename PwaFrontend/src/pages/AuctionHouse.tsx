@@ -1,7 +1,6 @@
 // src/pages/Auction.tsx (혹은 AuctionHouse.tsx)
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import Navigation from '@/components/Navigation';
 import ItemCard from '@/components/AuctionItemCard';
 import { Search } from 'lucide-react';
@@ -252,9 +251,6 @@ const AuctionHouse = () => {
           <h2 className="text-xl font-semibold">
             {loading ? 'Loading...' : `${totalCount} items found`}
           </h2>
-          <Badge variant="secondary" className="text-sm">
-            Notice
-          </Badge>
         </div>
 
         {/* ✅ 즐겨찾기 상태 내려주기: isFavorite / favoriteId */}
@@ -273,6 +269,12 @@ const AuctionHouse = () => {
               category,
             );
 
+            // priceSig는 세 값이 전부 null/undefined면 undefined가 되게 구성
+            const priceSig =
+              item.currentPrice != null || item.previousPrice != null || item.tradeCount != null
+                ? `${item.currentPrice ?? ''}-${item.previousPrice ?? ''}-${item.tradeCount ?? ''}`
+                : undefined;
+
             // 매물 고유 식별 후보들을 조합
             const uniqueness =
               item.id ??
@@ -281,7 +283,7 @@ const AuctionHouse = () => {
               item.auctionInfo?.EndDate ??
               item.info?.auctionInfo?.EndDate ??
               // 최후 보루: 가격/횟수 조합 또는 인덱스
-              `${item.currentPrice ?? ''}-${item.previousPrice ?? ''}-${item.tradeCount ?? ''}` ??
+              priceSig ??
               idx;
 
             const rowKey = `${matchKey}-${uniqueness}`;
@@ -292,6 +294,7 @@ const AuctionHouse = () => {
               <ItemCard
                 key={rowKey}
                 item={item}
+                showAlarm
                 onFavorite={() => handleToggleFavorite(item)}
                 favoriteId={fav?.id}
               />

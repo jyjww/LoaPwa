@@ -37,9 +37,12 @@ interface ItemCardProps {
       auctionInfo?: any;
       options?: ItemOption[];
     };
+    isAlerted?: boolean;
+    targetPrice?: number | null;
   };
   onFavorite?: (item: any) => void;
   favoriteId?: string; // ← 이 값만으로 즐겨찾기 상태 판단
+  showAlarm?: boolean;
 }
 
 const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -62,7 +65,7 @@ function extractAuctionInfo(item: any): AuctionInfoMerged {
   return { ...pick(candInfo), ...pick(candTop) };
 }
 
-const AuctionItemCard = ({ item, onFavorite, favoriteId }: ItemCardProps) => {
+const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm }: ItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const isFaved = !!favoriteId;
 
@@ -168,7 +171,14 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId }: ItemCardProps) => {
             </Button>
 
             {/* 알림 버튼: favoriteId 있을 때만 표시 */}
-            {favoriteId ? <Alarm favoriteId={favoriteId} /> : null}
+            {(showAlarm || isFaved) && (
+              <Alarm
+                favoriteId={favoriteId ?? ''} // ★ 빈 문자열 방지
+                isFavorite={true} // ★ 필요 시 명시적으로 true
+                defaultIsAlerted={Boolean(item.isAlerted)}
+                defaultTargetPrice={Number(item.targetPrice) || 0}
+              />
+            )}
           </div>
         </div>
       </CardHeader>

@@ -21,7 +21,7 @@ services:
   server:
     build:
       context: ..
-      dockerfile: Backend/Dockerfile.prod
+      dockerfile: Backend/Dockerfile
     container_name: loa-server
     command: npm run start:dev
     ports:
@@ -32,14 +32,14 @@ services:
     environment:
       NODE_ENV: development
       PORT: 4000
-      DATABASE_URL: ${DATABASE_URL:-postgres://loa:loa@db:5432/loa}
+      # DATABASE_URL: ${DATABASE_URL:-postgres://loa:loa@db:5432/loa}
+      DATABASE_URL: postgres://loa:loa@db:5432/loa
       ALERT_DEV_NO_COOLDOWN: '1'
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ../Backend:/app/Backend
-      - ../tsconfig.base.json:/app/tsconfig.base.json:ro
       - /app/Backend/node_modules
     networks: [app]
 
@@ -48,12 +48,12 @@ services:
       context: ../PwaFrontend
       dockerfile: Dockerfile
     container_name: loa-frontend
-    # command: npm run dev -- --host 0.0.0.0 --port 5173
-    command: sh -c "npm ci && npm run build -- --mode production && npx vite preview --host 0.0.0.0 --port 5173"
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    # command: sh -c "npm ci && npm run build -- --mode production && npx vite preview --host 0.0.0.0 --port 5173"
     ports:
       - '5173:5173'
     env_file:
-      - ../PwaFrontend/.env.production
+      - ../PwaFrontend/.env.development
     environment:
       VITE_HMR_HOST: host.docker.internal # Docker 내부에서 호스트 머신을 가리키는 주소
       VITE_HMR_PORT: 5173
@@ -61,7 +61,6 @@ services:
       CHOKIDAR_INTERVAL: '200'
     volumes:
       - ../PwaFrontend:/app
-      - ../tsconfig.base.json:/app/tsconfig.base.json:ro
       - /app/node_modules
     depends_on:
       - server

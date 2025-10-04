@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
 import MarketItemCard from '@/components/MarketItemCard';
 import { Filter, Search } from 'lucide-react';
@@ -32,15 +32,20 @@ const Market = () => {
 
   const [items, setItems] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   // ✅ 무한 스크롤 관련 상태
   const [pageNo, setPageNo] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const controllerRef = useRef<AbortController | null>(null);
 
   // ✅ 즐겨찾기 상태 보관
   const [favorites, setFavorites] = useState<any[]>([]);
   const { getMarketFavorite } = useFavoriteLookup(favorites);
+
+  const { toast } = useToast();
+  const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
 
   // ✅ 최초 마운트 시 즐겨찾기 로드
   useEffect(() => {
@@ -65,46 +70,67 @@ const Market = () => {
     }
   }, []);
 
-  // ✅ 페이지 단위로 호출 (mode: 'reset' | 'append')
+  const toMarketDto = (base: typeof filters, page: number) => ({
+    ...base,
+    pageNo: page,
+    category: base.category === '전체' ? undefined : base.category,
+    subCategory: base.subCategory === '전체' ? undefined : base.subCategory,
+    tier: base.tier === '전체' ? undefined : base.tier,
+    grade: base.grade === '전체' ? undefined : base.grade,
+    className: base.className === '전체' ? undefined : base.className,
+  });
+
   const fetchPage = useCallback(
     async (page: number, mode: 'reset' | 'append') => {
+      // 진행 중이면 취소
+      if (controllerRef.current) controllerRef.current.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+
       try {
         setIsLoading(true);
-        const data = await searchMarket({ ...filters, pageNo: page });
+
+        const data = await searchMarket(toMarketDto(filters, page), { signal: controller.signal });
 
         const nextItems = data.items ?? [];
-        if (mode === 'reset') {
-          setItems(nextItems);
-        } else {
-          setItems((prev) => [...prev, ...nextItems]);
-        }
+        setItems((prev) => (mode === 'reset' ? nextItems : [...prev, ...nextItems]));
 
-        setTotalCount(
-          typeof data.totalCount === 'number' ? data.totalCount : (totalCount ?? nextItems.length),
-        );
-
-        // hasMore 계산 (pageSize가 0이거나 없으면 items 길이로 대체)
         const pageSize = data.pageSize && data.pageSize > 0 ? data.pageSize : nextItems.length;
-        const total = data.totalCount ?? 0;
-
-        // 다음 페이지가 존재하는지 판단
+        const total = typeof data.totalCount === 'number' ? data.totalCount : 0;
         const loadedCount = (page - 1) * (pageSize || 0) + nextItems.length;
-        setHasMore(total === 0 ? nextItems.length > 0 : loadedCount < total);
 
+        setTotalCount(total || nextItems.length);
+        setHasMore(total === 0 ? nextItems.length > 0 : loadedCount < total);
         setPageNo(page);
-      } catch (err) {
-        console.error('Market API 실패:', err);
-        // 실패 시 더 이상 로드하지 않도록 방어
-        setHasMore(false);
+      } catch (err: any) {
+        // 취소 계열 에러 무시
+        const isCanceled =
+          err?.name === 'AbortError' ||
+          err?.name === 'CanceledError' ||
+          err?.code === 'ERR_CANCELED';
+        if (!isCanceled) {
+          // 여기서 콘솔 스팸 줄이고 싶으면 주석 유지
+          // console.warn('Market API 실패:', err);
+          setHasMore(false);
+        }
       } finally {
         setIsLoading(false);
+        if (controllerRef.current === controller) controllerRef.current = null;
       }
     },
-    [filters, totalCount],
+    [filters],
   );
+
+  useEffect(() => {
+    return () => {
+      if (controllerRef.current) controllerRef.current.abort();
+    };
+  }, []);
 
   // 🔎 검색 버튼: 1페이지로 초기화 후 새로 로드
   const handleSearchButton = async () => {
+    setIsSearching(true);
+    setItems([]);
     setPageNo(1);
     setHasMore(true);
     setTotalCount(null);
@@ -118,14 +144,17 @@ const Market = () => {
 
   // ✅ 카드에서 호출되는 즐겨찾기 토글
   const handleFavorite = async (item: any) => {
+    if (busyIds.has(item.id)) return;
+    setBusyIds((s) => new Set(s).add(item.id));
     try {
-      const existing = getMarketFavorite(item.id); // 있으면 Favorite(서버 UUID 포함), 없으면 null
+      const existing = getMarketFavorite(item.id);
       if (existing) {
-        // 이미 즐겨찾기 → 제거
         await removeFavorite(existing.id);
+        toast({ title: '즐겨찾기 해제', description: `${item.name}을(를) 해제했어요.` });
+        // 낙관적 업데이트 (즉시 반영)
+        setFavorites((prev) => prev.filter((f) => f.id !== existing.id));
       } else {
-        // 없으면 추가
-        await addFavorite({
+        const created = await addFavorite({
           source: 'market',
           itemId: item.id,
           name: item.name,
@@ -140,12 +169,26 @@ const Market = () => {
             tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
           },
         });
+        toast({ title: '즐겨찾기 추가', description: `${item.name}을(를) 저장했어요.` });
+        // 낙관적 업데이트 (즉시 반영)
+        setFavorites((prev) => [...prev, created]);
       }
-      // 토글 후 목록 새로고침
-      await refreshFavorites();
+
+      // ✅ 서버 기준으로 재동기화는 "조용히" (실패해도 토스트 X)
+      refreshFavorites().catch((e) => console.warn('refreshFavorites failed', e));
     } catch (err) {
       console.error('❌ 즐겨찾기 토글 실패:', err);
-      alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+      toast({
+        title: '오류',
+        description: '즐겨찾기 처리 중 문제가 발생했어요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusyIds((s) => {
+        const n = new Set(s);
+        n.delete(item.id);
+        return n;
+      });
     }
   };
 
@@ -158,6 +201,7 @@ const Market = () => {
   const loadingRef = useRef(false);
 
   const loadMore = useCallback(async () => {
+    if (!isSearching) return;
     if (loadingRef.current || isLoading || !hasMore) return;
     loadingRef.current = true;
     await fetchPage(pageNo + 1, 'append');
@@ -166,25 +210,18 @@ const Market = () => {
 
   useEffect(() => {
     const node = loaderRef.current;
-    if (!node) return;
+    if (!node || !isSearching) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const first = entries[0];
-        if (first.isIntersecting) {
-          loadMore();
-        }
+        if (entries[0].isIntersecting) loadMore();
       },
-      {
-        root: null,
-        rootMargin: '400px', // 살짝 여유있게 다음 페이지 프리페치
-        threshold: 0,
-      },
+      { root: null, rootMargin: '400px', threshold: 0 },
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [loadMore]);
+  }, [isSearching, loadMore]);
 
   return (
     <div className="min-h-screen p-4 bg-background">
@@ -271,11 +308,6 @@ const Market = () => {
           <h2 className="text-xl font-semibold">
             {totalCount != null ? `${totalCount} items loaded` : `${items.length} items loaded`}
           </h2>
-          <div className="flex items-center gap-4">
-            <Badge variant="secondary" className="text-sm">
-              Live market data
-            </Badge>
-          </div>
         </div>
 
         {/* 결과 그리드 (원본 유지: filteredItems가 아닌 items 사용) */}
