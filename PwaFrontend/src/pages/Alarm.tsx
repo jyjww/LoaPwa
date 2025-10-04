@@ -74,7 +74,7 @@ const Alarm = ({ favoriteId, defaultTargetPrice = 0, defaultIsAlerted = false }:
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>알림 설정</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription aria-describedby="alarm">
             즐겨찾기 항목에 대한 가격 알림을 켜거나 끌 수 있고, 목표 가격을 지정할 수 있습니다.
           </AlertDialogDescription>
         </AlertDialogHeader>

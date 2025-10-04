@@ -187,7 +187,9 @@ const Favorites = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Target Price</DialogTitle>
-              <DialogDescription>Set a new target price for {editingItem?.name}</DialogDescription>
+              <DialogDescription aria-describedby="newtarget">
+                Set a new target price for {editingItem?.name}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <Input

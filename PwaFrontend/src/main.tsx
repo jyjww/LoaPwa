@@ -50,6 +50,27 @@ if ('serviceWorker' in navigator) {
   })();
 }
 
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  (async () => {
+    try {
+      // 앱 SW
+      const appReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      console.log('App SW registered:', appReg.scope);
+
+      // 🔔 FCM 백그라운드 핸들링용 SW (선택)
+      // 이 파일은 CI에서 public/ 아래 생성됨
+      try {
+        const fcmReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        console.log('FCM SW registered:', fcmReg.scope);
+      } catch (e) {
+        console.warn('FCM SW register failed:', e);
+      }
+    } catch (err) {
+      console.error('SW register error', err);
+    }
+  })();
+}
+
 // --- React App 렌더링 ---
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
