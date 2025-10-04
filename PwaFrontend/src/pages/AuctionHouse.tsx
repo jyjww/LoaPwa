@@ -1,4 +1,4 @@
-// src/pages/Auction.tsx (혹은 AuctionHouse.tsx)
+// src/pages/AuctionHouse.tsx
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Navigation from '@/components/Navigation';
@@ -23,21 +23,18 @@ const normalizeOptions = (opts?: any[]): CanonOption[] =>
   Array.isArray(opts)
     ? opts
         .map((o) => {
-          const rawV =
-            typeof o?.value === 'string' && !Number.isNaN(Number(o.value))
-              ? Number(o.value)
-              : typeof o?.value === 'number'
-                ? o.value
-                : 0;
+          const rawV = Number(
+            typeof o?.value === 'string' ? o.value : typeof o?.value === 'number' ? o.value : 0,
+          );
           const dv = typeof o?.displayValue === 'number' ? o.displayValue : rawV;
-          return {
-            name: String(o?.name ?? ''),
-            value: rawV,
-            displayValue: dv,
-          };
+          return { name: String(o?.name ?? '').trim(), value: rawV, displayValue: dv };
         })
-        .sort((a, b) => (a.name > b.name ? 1 : a.name < b.name ? -1 : 0))
+        .sort((a, b) => a.name.localeCompare(b.name))
     : [];
+
+const getTier = (item: any) => item.tier ?? item.auctionInfo?.tier ?? item.info?.tier ?? null;
+const getQuality = (item: any) =>
+  item.quality ?? item.auctionInfo?.quality ?? item.info?.quality ?? null;
 
 // AuctionItemCard와 동일한 옵션 폴백 규칙
 const pickOptionsForKey = (item: any) =>
@@ -65,10 +62,15 @@ const AuctionHouse = () => {
   const [totalCount, setTotalCount] = useState(0);
 
   const loaderRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const debRef = useRef<number | undefined>(undefined);
 
   // ✅ 즐겨찾기 상태(서버) & 조회 헬퍼
   const [favorites, setFavorites] = useState<any[]>([]);
   const { getAuctionFavorite } = useFavoriteLookup(favorites);
+
+  // 즉시구매가가 있는 제품만 조회
+  const [onlyBuyNow, setOnlyBuyNow] = useState(false);
 
   // 최초 로드 시 즐겨찾기 가져오기
   useEffect(() => {
@@ -93,32 +95,46 @@ const AuctionHouse = () => {
     }
   }, []);
 
-  const handleSearch = async (reset = true) => {
+  const triggerSearch = (reset = true) => {
+    window.clearTimeout(debRef.current);
+    debRef.current = window.setTimeout(async () => {
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+      setIsSearching(true);
+      await handleSearch(reset, abortRef.current.signal);
+    }, 250); // 250~400ms 권장
+  };
+
+  const handleSearch = async (reset = true, signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const data = await searchAuctions(filters);
+      const data = await searchAuctions(filters, { signal });
       if (reset) setResults(data.items || []);
       else setResults((prev) => [...prev, ...(data.items || [])]);
 
       setTotalCount(data.totalCount ?? 0);
       setHasMore((reset ? 0 : results.length) + (data.items?.length || 0) < (data.totalCount ?? 0));
-    } catch (err) {
-      console.error('API 검색 실패:', err);
-      setHasMore(false);
+    } catch (err: any) {
+      if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
+        console.error('API 검색 실패:', err);
+        setHasMore(false);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleSearchButton = () => {
-    setIsSearching(true);
+    // setIsSearching(true);
     setResults([]);
     setHasMore(true);
     setFilters((prev) => ({ ...prev, pageNo: 1 }));
+    triggerSearch(true);
   };
 
   const handleChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, pageNo: 1 }));
+    triggerSearch(true);
   };
 
   useEffect(() => {
@@ -148,44 +164,81 @@ const AuctionHouse = () => {
     return results.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(filters.query.toLowerCase());
       const matchesGrade = filters.grade === '전체' || item.grade === filters.grade;
-      return matchesSearch && matchesGrade;
+      const hasBuyNow =
+        (typeof item?.auctionInfo?.BuyPrice === 'number' && item.auctionInfo.BuyPrice > 0) ||
+        (typeof item?.currentPrice === 'number' && item.currentPrice > 0);
+      const buyNowOk = !onlyBuyNow || hasBuyNow;
+      return matchesSearch && matchesGrade && buyNowOk;
     });
-  }, [results, filters]);
+  }, [results, filters, onlyBuyNow]);
 
   // 경매 카테고리 추정(기존 로직 유지)
   const classifyAuctionCategory = (item: any): CategoryKey => {
     if (item.name.includes('비상의 돌')) return 'stone';
     if (/멸화|홍염/.test(item.name)) return 'gem';
-    if (Array.isArray(item.options) && item.quality != null) return 'accessory';
+    const opts = pickOptionsForKey(item);
+    const hasOptions = Array.isArray(opts) && opts.length > 0;
+    if (hasOptions && item.quality != null) return 'accessory';
     return 'generic';
   };
 
-  const toAuctionLike = (item: any, canonOptions: CanonOption[]) => ({
-    name: item.name,
-    grade: item.grade,
-    tier: item.tier ?? null,
-    quality: item.quality ?? null,
-    // hook은 value만 쓰므로 value만 넘겨주면 됨
+  // 공통: 키에 쓸 파츠를 만들어주는 헬퍼
+  const buildKeyParts = (item: any) => {
+    const category = classifyAuctionCategory(item);
+    let canonOptions = normalizeOptions(pickOptionsForKey(item));
+
+    const name = String(item.name ?? '').trim();
+    const grade = item.grade;
+    const tier = getTier(item);
+    let quality = getQuality(item);
+
+    // ✅ 보석이면 옵션/품질 제외
+    if (category === 'gem') {
+      canonOptions = [];
+      quality = null;
+    }
+
+    // ✅ generic은 품질 제외(선택)
+    if (category === 'generic') {
+      quality = null;
+    }
+
+    return { category, name, grade, tier, quality, canonOptions };
+  };
+
+  const toAuctionLike = ({
+    name,
+    grade,
+    tier,
+    quality,
+    canonOptions,
+  }: {
+    name: string;
+    grade: string;
+    tier: number | null;
+    quality: number | null;
+    canonOptions: CanonOption[];
+  }) => ({
+    name,
+    grade,
+    tier,
+    quality,
     options: canonOptions.map((o) => ({ name: o.name, value: o.value })),
   });
 
   // ✅ 즐겨찾기 토글 (matchKey/옵션 정규화 통일)
   const handleToggleFavorite = async (item: any) => {
     try {
-      const category = classifyAuctionCategory(item);
-      const canonOptions = normalizeOptions(pickOptionsForKey(item));
+      const { category, name, grade, tier, quality, canonOptions } = buildKeyParts(item);
+
       const matchKey = makeAuctionKey(
-        {
-          name: item.name,
-          grade: item.grade,
-          tier: item.tier,
-          quality: item.quality ?? null,
-          options: canonOptions,
-        },
+        { name, grade, tier, quality, options: canonOptions },
         category,
       );
 
-      const existing = getAuctionFavorite(toAuctionLike(item, canonOptions));
+      const likeObj = toAuctionLike({ name, grade, tier, quality, canonOptions });
+
+      const existing = getAuctionFavorite(likeObj);
       if (existing) {
         await removeFavorite(existing.id);
       } else {
@@ -193,11 +246,11 @@ const AuctionHouse = () => {
           source: 'auction',
           itemId: item.id ?? undefined,
           matchKey,
-          name: item.name,
-          grade: item.grade,
-          tier: item.tier,
+          name,
+          grade,
+          tier,
           icon: item.icon,
-          quality: item.quality,
+          quality,
           currentPrice: item.currentPrice,
           previousPrice: item.previousPrice,
           auctionInfo: item.auctionInfo,
@@ -251,44 +304,45 @@ const AuctionHouse = () => {
           <h2 className="text-xl font-semibold">
             {loading ? 'Loading...' : `${totalCount} items found`}
           </h2>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={onlyBuyNow}
+              onChange={(e) => setOnlyBuyNow(e.target.checked)}
+            />
+            즉시구매가 있는 매물만
+          </label>
         </div>
 
         {/* ✅ 즐겨찾기 상태 내려주기: isFavorite / favoriteId */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((item, idx) => {
-            const category = classifyAuctionCategory(item);
-            const canonOptions = normalizeOptions(pickOptionsForKey(item));
+            const { category, name, grade, tier, quality, canonOptions } = buildKeyParts(item);
+
             const matchKey = makeAuctionKey(
-              {
-                name: item.name,
-                grade: item.grade,
-                tier: item.tier ?? null,
-                quality: item.quality ?? null,
-                options: canonOptions,
-              },
+              { name, grade, tier, quality, options: canonOptions },
               category,
             );
 
-            // priceSig는 세 값이 전부 null/undefined면 undefined가 되게 구성
             const priceSig =
               item.currentPrice != null || item.previousPrice != null || item.tradeCount != null
                 ? `${item.currentPrice ?? ''}-${item.previousPrice ?? ''}-${item.tradeCount ?? ''}`
                 : undefined;
 
-            // 매물 고유 식별 후보들을 조합
             const uniqueness =
               item.id ??
               item.auctionInfo?.Uid ??
               item.info?.auctionInfo?.Uid ??
               item.auctionInfo?.EndDate ??
               item.info?.auctionInfo?.EndDate ??
-              // 최후 보루: 가격/횟수 조합 또는 인덱스
               priceSig ??
               idx;
 
             const rowKey = `${matchKey}-${uniqueness}`;
 
-            const fav = getAuctionFavorite(toAuctionLike(item, canonOptions));
+            const fav = getAuctionFavorite(
+              toAuctionLike({ name, grade, tier, quality, canonOptions }),
+            );
 
             return (
               <ItemCard
@@ -307,8 +361,8 @@ const AuctionHouse = () => {
           ref={loaderRef}
           className="h-10 flex justify-center items-center text-muted-foreground"
         >
-          {loading && <span>Loading more...</span>}
-          {!hasMore && <span>No more items</span>}
+          {loading && <span>Loading ...</span>}
+          {!hasMore && <span>No more Items</span>}
         </div>
       </div>
     </div>

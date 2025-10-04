@@ -1,6 +1,6 @@
 {
-  "name": "LoaPwa",
-  "short_name": "LoaPwa",
+  "name": "LoAlarm",
+  "short_name": "LoAlarm",
   "start_url": "/?src=pwa",
   "display": "standalone",
   "background_color": "#111827",

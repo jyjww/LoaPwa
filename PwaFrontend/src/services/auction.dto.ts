@@ -11,7 +11,9 @@ export interface AuctionSearchDto {
   pageNo?: number;
 }
 
-export const searchAuctions = async (dto: AuctionSearchDto) => {
-  const res = await api.post('/auctions/search', dto);
+export const searchAuctions = async (dto: AuctionSearchDto, opts?: { signal?: AbortSignal }) => {
+  const res = await api.post('/auctions/search', dto, {
+    signal: opts?.signal,
+  });
   return res.data; // { pageNo, pageSize, totalCount, items: [...] }
 };

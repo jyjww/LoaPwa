@@ -129,17 +129,13 @@ const Market = () => {
 
   // 🔎 검색 버튼: 1페이지로 초기화 후 새로 로드
   const handleSearchButton = async () => {
-    setIsSearching(true);
-    setItems([]);
-    setPageNo(1);
-    setHasMore(true);
-    setTotalCount(null);
-    await fetchPage(1, 'reset');
+    triggerSearch();
   };
 
   // 🔧 SearchBar에서 필터 변경 시 pageNo 1로 초기화(원본 유지)
   const handleChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, pageNo: 1 }));
+    triggerSearch();
   };
 
   // ✅ 카드에서 호출되는 즐겨찾기 토글
@@ -199,6 +195,7 @@ const Market = () => {
   // ✅ IntersectionObserver: sentinel 보이면 다음 페이지 로드
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
+  const debRef = useRef<number | undefined>(undefined);
 
   const loadMore = useCallback(async () => {
     if (!isSearching) return;
@@ -207,6 +204,19 @@ const Market = () => {
     await fetchPage(pageNo + 1, 'append');
     loadingRef.current = false;
   }, [isLoading, hasMore, pageNo, fetchPage]);
+
+  const triggerSearch = useCallback(() => {
+    window.clearTimeout(debRef.current);
+    debRef.current = window.setTimeout(async () => {
+      // 1페이지로 초기화 후 로드
+      setIsSearching(true);
+      setItems([]);
+      setPageNo(1);
+      setHasMore(true);
+      setTotalCount(null);
+      await fetchPage(1, 'reset'); // 이전 요청은 fetchPage 내부에서 abort됨
+    }, 300); // 250~400ms 권장
+  }, [fetchPage]);
 
   useEffect(() => {
     const node = loaderRef.current;
@@ -306,7 +316,7 @@ const Market = () => {
         {/* 결과 헤더 (원본 UX 유지) */}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">
-            {totalCount != null ? `${totalCount} items loaded` : `${items.length} items loaded`}
+            {totalCount != null ? `${totalCount} items found` : `${items.length} items found`}
           </h2>
         </div>
 
@@ -342,9 +352,9 @@ const Market = () => {
         {/* 무한 스크롤 sentinel */}
         <div ref={loaderRef} className="h-12 flex items-center justify-center">
           {isLoading ? (
-            <span className="text-sm text-muted-foreground">불러오는 중...</span>
+            <span className="text-sm text-muted-foreground">Loading ...</span>
           ) : !hasMore && items.length > 0 ? (
-            <span className="text-sm text-muted-foreground">여기까지 끝!</span>
+            <span className="text-sm text-muted-foreground">No more items</span>
           ) : null}
         </div>
       </div>
