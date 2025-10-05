@@ -6,7 +6,7 @@
       {
         "source": "/api/**",
         "run": {
-          "serviceId": "loa-api-25420661450",
+          "serviceId": "loa-api",
           "region": "asia-northeast3",
           "pinTag": true
         }
