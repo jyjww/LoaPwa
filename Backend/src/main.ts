@@ -9,6 +9,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'], // ← debug 로그가 보여야 함
   });
+  app.setGlobalPrefix('api');
 
   const dataSource = app.get(DataSource);
   const [{ current_database, current_user, current_schema, search_path }] = await dataSource.query(`

@@ -126,7 +126,7 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
           API_URL="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
-          GOOGLE_CALLBACK_URL="${API_URL}/auth/google/callback"
+          GOOGLE_CALLBACK_URL="${API_URL}/api/auth/google/callback"
 
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE:${{ github.sha }}" \

@@ -49,8 +49,6 @@ export default defineConfig(({ mode }) => {
             '/api': {
               target: 'http://loa-server:4000',
               changeOrigin: true,
-              // /api 프리픽스 제거해서 백엔드에 /auth/... 로 전달
-              rewrite: (path) => path.replace(/^\/api/, ''),
             },
           },
           allowedHosts: ALLOWED,
