@@ -26,18 +26,20 @@ services:
     command: npm run start:dev
     ports:
       - '4000:4000'
+      # - '8080:8080'
     env_file:
       - ../Backend/.env.development
     environment:
       NODE_ENV: development
       PORT: 4000
-      DATABASE_URL: ${DATABASE_URL:-postgres://loa:loa@db:5432/loa}
+      # DATABASE_URL: ${DATABASE_URL:-postgres://loa:loa@db:5432/loa}
+      DATABASE_URL: postgres://loa:loa@db:5432/loa
+      ALERT_DEV_NO_COOLDOWN: '1'
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ../Backend:/app/Backend
-      - ../shared:/app/Backend/shared
       - /app/Backend/node_modules
     networks: [app]
 
@@ -47,6 +49,7 @@ services:
       dockerfile: Dockerfile
     container_name: loa-frontend
     command: npm run dev -- --host 0.0.0.0 --port 5173
+    # command: sh -c "npm ci && npm run build -- --mode production && npx vite preview --host 0.0.0.0 --port 5173"
     ports:
       - '5173:5173'
     env_file:
@@ -58,8 +61,6 @@ services:
       CHOKIDAR_INTERVAL: '200'
     volumes:
       - ../PwaFrontend:/app
-      - ../shared:/app/shared
-      - ../tsconfig.base.json:/tsconfig.base.json:ro
       - /app/node_modules
     depends_on:
       - server

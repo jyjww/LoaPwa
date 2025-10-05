@@ -1,12 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src", "../shared"],
-  "exclude": ["node_modules", "dist", "test"],
   "compilerOptions": {
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": ["*"],
-      "@shared/*": ["../shared/*"]
-    }
-  }
+    // build 시에 필요한 옵션이 tsconfig.json에 이미 들어가 있음
+  },
+  "include": ["src", "shared"],
+  "exclude": ["node_modules", "dist", "test"]
 }

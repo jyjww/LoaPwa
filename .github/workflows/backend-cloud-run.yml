@@ -21,6 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  PROJECT_NUMBER: 25420661450
   PROJECT_ID: loapwa-d0c74
   REGION: asia-northeast3
   AR_REPO: loa-pwa
@@ -47,6 +48,42 @@ jobs:
               - 'Backend/**'
               - 'shared/**'
               - 'Backend/Dockerfile.prod'
+
+      - id: oidc
+        name: Get OIDC token via toolkit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const aud = `//iam.googleapis.com/${{ secrets.GCP_WORKLOAD_IDP }}`;
+            const token = await core.getIDToken(aud);
+            core.setOutput('token', token);
+
+      - name: Dump OIDC claims (repo/ref 확인)
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          echo "github.repository=${{ github.repository }}"
+          echo "github.ref=${{ github.ref }}"
+
+          python3 - <<'PY'
+          import os, json, base64, sys
+          tok = os.environ.get("OIDC_TOKEN", "")
+          if not tok or tok.count('.') < 2:
+              print("!! invalid OIDC token")
+              sys.exit(0)
+          seg = tok.split('.')[1]
+          # URL-safe + padding fix
+          seg += '=' * (-len(seg) % 4)
+          payload = base64.urlsafe_b64decode(seg.encode()).decode()
+          print("==== OIDC JWT payload ====")
+          print(payload)
+          data = json.loads(payload)
+          print("repo  :", data.get("repository"))
+          print("ref   :", data.get("ref"))
+          print("issuer:", data.get("iss"))
+          PY
 
       # 1) GCP OIDC 인증
       - name: Auth to GCP
@@ -88,8 +125,10 @@ jobs:
       - name: Deploy to Cloud Run
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
-          API_URL="https://${SERVICE}-${REGION}-a.run.app"
-          GOOGLE_CALLBACK_URL="${API_URL}/auth/google/callback"
+          API_ORIGIN_RUN="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
+          FRONTEND_URL="https://loapwa-d0c74.web.app"
+          PUBLIC_API_BASE="${FRONTEND_URL}/api"
+          GOOGLE_CALLBACK_URL="${PUBLIC_API_BASE}/auth/google/callback"
 
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE:${{ github.sha }}" \
@@ -100,8 +139,31 @@ jobs:
             --concurrency=80 \
             --timeout=300 \
             --add-cloudsql-instances "${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE}" \
-            --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=${API_URL},CORS_ORIGIN=https://loapwa-d0c74.web.app,GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL},DB_HOST=/cloudsql/${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,FCM_PROJECT_ID=${PROJECT_ID},FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCLOUD_PROJECT=${PROJECT_ID},FIREBASE_CONFIG={\"projectId\":\"${PROJECT_ID}\"}" \
-            --set-secrets "DB_PASSWORD=DB_PASSWORD:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,LOSTARK_API_KEY=LOSTARK_API_KEY:latest,FIREBASE_SA_JSON=FIREBASE_SA_JSON:latest"
+            --set-env-vars "
+              NODE_ENV=production,
+              FRONTEND_URL=${FRONTEND_URL},
+              PUBLIC_API_BASE=${PUBLIC_API_BASE},
+              API_ORIGIN_RUN=${API_ORIGIN_RUN},
+              CORS_ORIGIN=${FRONTEND_URL},
+              GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
+              GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL},
+              DB_HOST=/cloudsql/${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE},
+              DB_PORT=5432,
+              DB_NAME=loadb,
+              DB_USER=yzroot,
+              SYNC_ON_BOOT=0,
+              MIGRATE_ON_BOOT=1,
+              FCM_PROJECT_ID=${PROJECT_ID},
+              FCM_CLIENT_EMAIL=${{ secrets.FCM_CLIENT_EMAIL }},
+              GOOGLE_CLOUD_PROJECT=${PROJECT_ID},
+              GCLOUD_PROJECT=${PROJECT_ID},
+              FIREBASE_CONFIG={\"projectId\":\"${PROJECT_ID}\"},
+              ALERT_DEV_NO_COOLDOWN=0" \
+            --set-secrets "
+              DB_PASSWORD=DB_PASSWORD:latest,
+              GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,
+              LOSTARK_API_KEY=LOSTARK_API_KEY:latest,
+              FIREBASE_SA_JSON=FIREBASE_SA_JSON:latest"
 
       - name: Show service URL
         if: ${{ success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true') }}

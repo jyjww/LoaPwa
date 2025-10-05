@@ -9,7 +9,7 @@ import { CreateFavoriteDto } from './dto/create-favorite.dto';
 import { shouldTriggerAlert, type AlertCandidate } from '@/favorites/alert.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createHash } from 'crypto';
-import { makeAuctionKey, type CategoryKey } from '@shared/utils/matchAuctionKey';
+import { makeAuctionKey, type CategoryKey } from '@shared/matchAuctionKey';
 
 @Injectable()
 export class FavoritesService {
@@ -21,6 +21,11 @@ export class FavoritesService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
+
+  // 👇 개발 중 쿨다운 끄기 (env로 제어)
+  private get cooldownMs() {
+    return process.env.ALERT_DEV_NO_COOLDOWN === '1' ? 0 : 30 * 60 * 1000;
+  }
 
   /**
    * 유저 기준 즐겨찾기 전체 조회 (선택적으로 source 필터링 가능)
@@ -194,7 +199,7 @@ export class FavoritesService {
 
     // 2) 알림 여부 판단
     const shouldNotify = shouldTriggerAlert(nextForCheck, {
-      cooldownMs: 30 * 60 * 1000,
+      cooldownMs: this.cooldownMs,
       crossingOnly: false,
     });
 
@@ -215,6 +220,7 @@ export class FavoritesService {
         currentPrice,
         targetPrice: favorite.targetPrice,
         source: favorite.source,
+        name: favorite.name,
       });
     }
 
@@ -267,7 +273,7 @@ export class FavoritesService {
       };
 
       const shouldNotify = shouldTriggerAlert(nextForCheck, {
-        cooldownMs: 30 * 60 * 1000,
+        cooldownMs: this.cooldownMs,
         crossingOnly: false,
       });
 
@@ -290,6 +296,7 @@ export class FavoritesService {
           currentPrice: nextCurrent,
           targetPrice: fav.targetPrice,
           source: fav.source,
+          name: fav.name,
         });
       }
 

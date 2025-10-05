@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
-// const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
+// export const API = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
 
-const API = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
+export const API = (import.meta.env.VITE_API_URL || `${location.origin}/api`).replace(/\/+$/, '');
 
 type JwtPayload = { exp: number };
 

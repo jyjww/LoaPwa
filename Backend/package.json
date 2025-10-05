@@ -6,7 +6,6 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -17,7 +16,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand --json --outputFile=./results/e2e-results.json --reporters=default"
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand --json --outputFile=./results/e2e-results.json --reporters=default",
+    "build": "nest build && tsc -p tsconfig.migrations.json",
+    "typeorm": "TS_NODE_TRANSPILE_ONLY=1 node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js -d src/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate src/migrations/InitSchema",
+    "migration:run": "npm run typeorm -- migration:run"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

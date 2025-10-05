@@ -7,6 +7,7 @@ import Favorites from './pages/Favorites';
 import NotFound from './pages/NotFound';
 import Login from './pages/login/Login';
 import LoginSuccess from './pages/login/LoginSuccess';
+import PushHelp from './pages/PushHelp';
 
 const AppRoutes = () => {
   return (
@@ -18,6 +19,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/login/success" element={<LoginSuccess />} />
       <Route path="*" element={<NotFound />} />
+      <Route path="/push-help" element={<PushHelp />} />
     </Routes>
   );
 };

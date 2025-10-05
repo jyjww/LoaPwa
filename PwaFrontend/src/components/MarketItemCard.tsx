@@ -1,26 +1,11 @@
+import clsx from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
 import { useState } from 'react';
-// import { useLocation } from 'react-router-dom';
 import Alarm from '@/pages/Alarm';
 
-// interface MarketItemCardProps {
-//   item: {
-//     id: number;
-//     name: string;
-//     grade: string;
-//     icon?: string;
-//     currentMinPrice: number;
-//     yDayAvgPrice?: number;
-//     recentPrice?: number;
-//     tradeRemainCount?: number;
-//     quality?: number;
-//   };
-//   onFavorite?: (item: any) => void;
-//   isFavorite?: boolean;
-// }
 interface MarketItemCardProps {
   item: {
     id: string;
@@ -34,12 +19,22 @@ interface MarketItemCardProps {
       recentPrice?: number;
       tradeRemainCount?: number;
     };
+    isAlerted?: boolean;
+    targetPrice?: number | null;
   };
   onFavorite?: (item: any) => void;
   isFavorite?: boolean;
+  favoriteId?: string;
+  showAlarm?: boolean;
 }
 
-const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCardProps) => {
+const MarketItemCard = ({
+  item,
+  onFavorite,
+  isFavorite = false,
+  favoriteId,
+  showAlarm,
+}: MarketItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
   // const location = useLocation();
 
@@ -48,6 +43,8 @@ const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCard
     onFavorite?.(item);
     setTimeout(() => setIsAnimating(false), 300);
   };
+
+  const isFaved = isFavorite || !!favoriteId;
 
   const gradeColors: Record<string, string> = {
     일반: 'bg-gray-600 text-white border-gray-600',
@@ -60,9 +57,9 @@ const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCard
   };
 
   return (
-    <Card className="mobile-card group hover:shadow-lg transition-all duration-300">
-      <CardHeader className="pb-2 p-3 sm:p-4 sm:pb-3">
-        <div className="flex items-start justify-between">
+    <Card className="mobile-card group transition-all duration-300 hover:shadow-lg">
+      <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {item.icon && (
               <img
@@ -88,27 +85,45 @@ const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCard
             </div>
           </div>
           {/* ⭐ 즐겨찾기 버튼 */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleFavorite}
-            className={`p-1 sm:p-2 transition-all shrink-0 ${isAnimating ? 'scale-125' : ''} ${
-              isFavorite
-                ? 'text-accent hover:text-accent/80'
-                : 'text-muted-foreground hover:text-accent'
-            }`}
-          >
-            <Star className={`h-3 w-3 sm:h-4 sm:w-4 ${isFavorite ? 'fill-current' : ''}`} />
-          </Button>
-          {/* {location.pathname === '/favorites' && <Alarm favoriteId={item.id} />} */}
-          <Alarm favoriteId={item.id} />
+          <div className="flex items-start gap-1.5 sm:gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleFavorite}
+              title={isFaved ? '즐겨찾기 해제' : '즐겨찾기'}
+              className={clsx(
+                'p-0 sm:p-0 shrink-0 transition-transform items-start justify-end',
+                isAnimating && 'scale-125',
+                'bg-transparent hover:bg-transparent focus-visible:ring-0',
+                '[&_svg]:!h-5 [&_svg]:!w-5',
+                'group/star',
+              )}
+            >
+              <Star
+                className={clsx(
+                  'transition-all duration-150',
+                  isFaved
+                    ? 'text-[var(--color-accent)] [fill:currentColor] [stroke:none]'
+                    : 'text-muted-foreground group-hover/star:text-[var(--color-accent)] group-hover/star:[fill:currentColor] group-hover/star:[stroke:none]',
+                )}
+              />
+            </Button>
+
+            {(showAlarm || isFaved) && (
+              <Alarm
+                favoriteId={favoriteId ?? ''}
+                isFavorite={true}
+                defaultIsAlerted={Boolean(item.isAlerted)}
+                defaultTargetPrice={Number(item.targetPrice) || 0}
+              />
+            )}
+          </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-3 sm:p-4 pt-0">
         <div className="space-y-2 sm:space-y-3">
           {/* ✅ 최소가 */}
-          {/* {(item.currentMinPrice ?? item.recentPrice ?? 0).toLocaleString()}G */}
           <div className="flex items-center justify-between">
             <span className="text-xs sm:text-sm text-muted-foreground">최소가</span>
             <span className="text-sm sm:text-lg font-bold text-primary">
@@ -129,8 +144,6 @@ const MarketItemCard = ({ item, onFavorite, isFavorite = false }: MarketItemCard
           )}
 
           {/* ✅ 잔여 거래 */}
-          {/* {item.tradeRemainCount} */}
-          {/* {item.tradeRemainCount !== undefined && ( */}
           {item.marketInfo?.tradeRemainCount !== undefined && (
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">잔여 거래</span>

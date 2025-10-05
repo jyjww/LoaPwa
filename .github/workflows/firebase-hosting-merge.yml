@@ -19,6 +19,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -42,11 +43,65 @@ jobs:
           echo "No frontend changes detected and 'force' not set. Skipping."
           exit 0
 
+      # FCM 전용 SW를 public/에 생성 (루트 경로 제공용)
+      - name: Create firebase-messaging-sw.js from secrets
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.frontend == 'true' }}
+        working-directory: PwaFrontend
+        run: |
+          mkdir -p public
+          cat > public/firebase-messaging-sw.js << 'EOF'
+          importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
+          importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
+
+          firebase.initializeApp({
+            apiKey: '${{ secrets.VITE_FB_API_KEY }}',
+            authDomain: '${{ secrets.VITE_FB_AUTH_DOMAIN }}',
+            projectId: '${{ secrets.VITE_FB_PROJECT_ID }}',
+            storageBucket: '${{ secrets.VITE_FB_STORAGE_BUCKET }}',
+            messagingSenderId: '${{ secrets.VITE_FB_SENDER_ID }}',
+            appId: '${{ secrets.VITE_FB_APP_ID }}',
+            measurementId: '${{ secrets.VITE_FB_MEASUREMENT_ID }}'
+          });
+
+          const messaging = firebase.messaging();
+
+          messaging.onBackgroundMessage((payload) => {
+            const n = payload.notification || {};
+            const data = payload.data || {};
+            const title = n.title || data.title || '알림';
+            const body = n.body || data.body || '';
+            const url = (payload.fcmOptions && payload.fcmOptions.link) || data.url || '/';
+
+            self.registration.showNotification(title, {
+              body,
+              icon: '/icons/icon-192.png',
+              badge: '/icons/badge-72.png',
+              data: { url }
+            });
+          });
+
+          self.addEventListener('notificationclick', (event) => {
+            event.notification.close();
+            const targetUrl = (event.notification && event.notification.data && event.notification.data.url) || '/';
+            event.waitUntil(clients.openWindow(targetUrl));
+          });
+          EOF
+
       - name: Build (PwaFrontend)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.frontend == 'true' }}
         working-directory: PwaFrontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+          # Vite에서 참조할 Firebase 환경변수들
+          VITE_FB_API_KEY: ${{ secrets.VITE_FB_API_KEY }}
+          VITE_FB_AUTH_DOMAIN: ${{ secrets.VITE_FB_AUTH_DOMAIN }}
+          VITE_FB_PROJECT_ID: ${{ secrets.VITE_FB_PROJECT_ID }}
+          VITE_FB_STORAGE_BUCKET: ${{ secrets.VITE_FB_STORAGE_BUCKET }}
+          VITE_FB_SENDER_ID: ${{ secrets.VITE_FB_SENDER_ID }}
+          VITE_FB_APP_ID: ${{ secrets.VITE_FB_APP_ID }}
+          VITE_FB_MEASUREMENT_ID: ${{ secrets.VITE_FB_MEASUREMENT_ID }}
+          VITE_FB_VAPID_KEY: ${{ secrets.VITE_FB_VAPID_KEY }}
         run: |
           npm ci
           npm run build

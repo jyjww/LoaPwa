@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAnalytics } from 'firebase/analytics';
 import { getMessaging, isSupported, getToken } from 'firebase/messaging';
+import { deleteToken } from 'firebase/messaging';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -62,3 +63,15 @@ export async function issueFcmTokenWithVapid(): Promise<string | null> {
     return null;
   }
 }
+
+export async function deleteFcmToken(): Promise<void> {
+  const messaging = await getMessagingIfSupported();
+  if (!messaging) return;
+  try {
+    await deleteToken(messaging);
+  } catch (e) {
+    console.warn('FCM 토큰 삭제 실패:', e);
+  }
+}
+
+
