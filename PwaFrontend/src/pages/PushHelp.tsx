@@ -166,12 +166,17 @@ export default function PushHelp() {
               </Button>
             </div>
 
-            {token && (
+            {token ? (
               <div className="mt-3 text-xs break-all bg-muted p-2 rounded">
                 <div className="font-semibold">FCM Token</div>
                 <div className="opacity-80">{token}</div>
               </div>
-            )}
+            ) : perm === 'granted' && fcmSupported && swReady ? (
+              <div className="mt-3 text-xs rounded border border-yellow-500/50 bg-yellow-500/10 text-yellow-800 dark:text-yellow-200 p-2">
+                FCM 토큰이 <b>null</b>로 표시됩니다. 네트워크/환경설정(예: VAPID/프로젝트
+                설정/서비스워커 경로) 문제일 수 있어요. <b>개발자에게 문의</b>해 주세요.
+              </div>
+            ) : null}
           </Section>
 
           {/* 플랫폼별 가이드 */}
@@ -280,15 +285,19 @@ export default function PushHelp() {
           <Section title="3) 문제 해결">
             <ul className="list-disc ml-5 space-y-1 text-sm">
               <li>
-                <b>권한이 granted인데 수신이 안 됨</b>: 서비스워커 재등록(앱 재실행), 토큰
-                재발급(구독→해지→구독).
+                <b>권한은 허용인데 알림이 안 와요</b>: 앱을 완전히 종료 후 다시 실행해 보세요.
+                (iOS는 홈 화면에 추가한 앱에서만 작동)
               </li>
               <li>
-                <b>iOS 푸시 미수신</b>: 반드시 홈 화면에 추가한 PWA에서 테스트.
+                <b>여전히 안 와요</b>: 설정 &gt; 알림에서 이 앱(또는 브라우저)의 알림이 켜져 있는지
+                확인.
               </li>
               <li>
-                <b>FCM 토큰 null</b>: .env(VAPID, projectId 등) 확인 & HTTPS + 올바른 SW
-                경로(`/firebase-messaging-sw.js`).
+                <b>토큰 재발급</b>: 아래 버튼으로 <b>구독 해지</b> → 다시 <b>구독</b>을 눌러 재등록.
+              </li>
+              <li>
+                <b>토큰 확인에서 null만 보임</b>: 환경 설정 이슈일 수 있어요. <b>개발자에게 문의</b>
+                해 주세요.
               </li>
             </ul>
           </Section>

@@ -17,23 +17,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-self.addEventListener('push', (event) => {
-  // 최소 스모크 로그
-  console.log('[SW] push event fired. hasData=', !!event.data);
-  let data = {};
-  try {
-    data = event.data?.json() ?? {};
-  } catch {
-    data = {};
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'DevTools Push', {
-      body: data.body || 'push() test',
-    }),
-  );
-});
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -81,6 +64,65 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// ===== Inbox IDB (백그라운드 푸시를 로컬에 적재) =====
+const INBOX_DB = 'push_inbox_db';
+const INBOX_STORE = 'messages';
+const INBOX_MAX = 300;
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(INBOX_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(INBOX_STORE)) {
+        const store = db.createObjectStore(INBOX_STORE, { keyPath: 'ts' }); // ts를 키로 사용
+        store.createIndex('ts', 'ts', { unique: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbAddMessage(msg) {
+  const db = await idbOpen();
+  await new Promise((res, rej) => {
+    const tx = db.transaction(INBOX_STORE, 'readwrite');
+    tx.objectStore(INBOX_STORE).put(msg);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function idbTrim(limit = INBOX_MAX) {
+  const db = await idbOpen();
+  await new Promise((res, rej) => {
+    const tx = db.transaction(INBOX_STORE, 'readwrite');
+    const store = tx.objectStore(INBOX_STORE).index('ts');
+
+    // 오래된 것부터 지우기 위해 역방향이 아닌 정방향 커서 사용
+    const req = store.openCursor();
+    const items = [];
+    req.onsuccess = () => {
+      const cur = req.result;
+      if (cur) {
+        items.push(cur.primaryKey);
+        cur.continue();
+      } else {
+        const over = Math.max(0, items.length - limit);
+        if (over > 0) {
+          const txx = db.transaction(INBOX_STORE, 'readwrite');
+          const s = txx.objectStore(INBOX_STORE);
+          for (let i = 0; i < over; i++) s.delete(items[i]);
+          txx.oncomplete = () => res();
+          txx.onerror = () => rej(txx.error);
+        } else res();
+      }
+    };
+    req.onerror = () => rej(req.error);
+  });
+}
+
 // ===== Firebase Cloud Messaging (background handler) =====
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
@@ -115,6 +157,12 @@ function normalizePayload(input) {
 // ➋ FCM 백그라운드 메시지 (기존 onBackgroundMessage의 "내용"을 이걸로 교체)
 messaging.onBackgroundMessage((payload) => {
   const p = normalizePayload(payload);
+  if (!p.ts) p.ts = Date.now();
+
+  // 로컬 저장
+  idbAddMessage(p)
+    .then(() => idbTrim())
+    .catch(() => {});
 
   // 열려 있는 모든 탭에 "도착" 알림
   self.clients
@@ -138,13 +186,21 @@ self.addEventListener('push', (event) => {
   } catch {
     raw = { body: event.data?.text() || '' };
   }
-
   const p = normalizePayload(raw);
+  if (!p.ts) p.ts = Date.now();
 
   event.waitUntil(
     (async () => {
+      // 로컬 저장
+      await idbAddMessage(p)
+        .then(() => idbTrim())
+        .catch(() => {});
+
+      // 열려 있는 탭에 전달
       const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       list.forEach((c) => c.postMessage({ type: 'PUSH_RECEIVED', payload: p }));
+
+      // OS 알림
       await self.registration.showNotification(p.title, {
         body: p.body,
         icon: '/icons/icon-192.png',

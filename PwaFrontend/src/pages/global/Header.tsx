@@ -28,6 +28,11 @@ const Header = () => {
 
   // 푸시 ON/OFF 훅(권한/에러/로딩 포함)
   const { enabled, permission, loading, error, enable, disable } = usePushToggle();
+  const permLabelMap: Record<NotificationPermission, string> = {
+    granted: '허용',
+    denied: '차단',
+    default: '요청 필요',
+  };
 
   // ======== Theme (light | dark | system) ========
   const [theme, setTheme] = useState<ThemePref>(() => {
@@ -213,7 +218,7 @@ const Header = () => {
               label="알림 허용"
             />
             <p className="text-xs text-muted-foreground">
-              권한: <b>{permission}</b>
+              권한: <b>{permLabelMap[permission]}</b>
               {permission === 'denied' && ' — 브라우저/OS 설정에서 허용해야 합니다.'}
               {!isLoggedIn && ' — 로그인 후 이용 가능합니다.'}
             </p>

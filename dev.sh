@@ -22,16 +22,18 @@ install_deps() {
 # ===== Compose up helpers =====
 compose_up_all() {
   need docker
-  say "🐳 Docker Compose up (DB + Server + Frontend) — 전체 재빌드"
-  (cd "$INFRA_DIR" && docker compose up -d --build)
+  say "🐳 Docker Compose build --no-cache && up (DB + Server + Frontend)"
+  (cd "$INFRA_DIR" && docker compose build --no-cache --pull)   # ← 캐시 미사용으로 빌드
+  (cd "$INFRA_DIR" && docker compose up -d)                     # ← 컨테이너 기동
   (cd "$INFRA_DIR" && docker compose ps)
 }
 
 compose_up_service() {
   need docker
   local svc="$1"
-  say "🐳 Docker Compose up (서비스만) — $svc 재빌드"
-  (cd "$INFRA_DIR" && docker compose up -d --no-deps --build "$svc")
+  say "🐳 Docker Compose build --no-cache $svc && up (서비스만)"
+  (cd "$INFRA_DIR" && docker compose build --no-cache --pull "$svc")  # ← 서비스만 재빌드
+  (cd "$INFRA_DIR" && docker compose up -d --no-deps "$svc")          # ← 의존성 재기동 없이
   (cd "$INFRA_DIR" && docker compose ps)
 }
 
@@ -53,7 +55,7 @@ compose_up_interactive() {
 compose_down() {
   need docker
   say "🛑 Docker Compose down"
-  (cd "$INFRA_DIR" && docker compose down)
+  (cd "$INFRA_DIR" && docker compose down -v)
 }
 
 compose_logs() {

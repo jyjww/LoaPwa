@@ -4,6 +4,22 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "loa-api-25420661450",
+          "region": "asia-northeast3",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/auth/**",
+        "run": {
+          "serviceId": "loa-api-25420661450",
+          "region": "asia-northeast3",
+          "pinTag": true
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
