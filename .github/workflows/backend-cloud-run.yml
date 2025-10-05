@@ -125,8 +125,10 @@ jobs:
       - name: Deploy to Cloud Run
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
-          API_URL="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
-          GOOGLE_CALLBACK_URL="${API_URL}/api/auth/google/callback"
+          API_ORIGIN_RUN="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
+          FRONTEND_URL="https://loapwa-d0c74.web.app"
+          PUBLIC_API_BASE="${FRONTEND_URL}/api"
+          GOOGLE_CALLBACK_URL="${PUBLIC_API_BASE}/auth/google/callback"
 
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE:${{ github.sha }}" \
@@ -139,8 +141,10 @@ jobs:
             --add-cloudsql-instances "${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE}" \
             --set-env-vars "
               NODE_ENV=production,
-              FRONTEND_URL=https://loapwa-d0c74.web.app,API_URL=${API_URL},
-              CORS_ORIGIN=https://loapwa-d0c74.web.app,
+              FRONTEND_URL=${FRONTEND_URL},
+              PUBLIC_API_BASE=${PUBLIC_API_BASE},
+              API_ORIGIN_RUN=${API_ORIGIN_RUN},
+              CORS_ORIGIN=${FRONTEND_URL},
               GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
               GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL},
               DB_HOST=/cloudsql/${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE},
