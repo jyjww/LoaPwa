@@ -7,8 +7,7 @@
         "source": "/api/**",
         "run": {
           "serviceId": "loa-api",
-          "region": "asia-northeast3",
-          "pinTag": true
+          "region": "asia-northeast3"
         }
       },
       {
