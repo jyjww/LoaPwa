@@ -158,6 +158,7 @@ jobs:
               GOOGLE_CLOUD_PROJECT=${PROJECT_ID},
               GCLOUD_PROJECT=${PROJECT_ID},
               FIREBASE_CONFIG={\"projectId\":\"${PROJECT_ID}\"},
+              REDIS_URL="rediss://default:AUthAAIncDI4OTAyZmMzNzkyNzE0NWIyOTZkZjAxYjQ2OTM1ZDVmMnAyMTkyOTc@sweet-katydid-19297.upstash.io:6379",
               ALERT_DEV_NO_COOLDOWN=0" \
             --set-secrets "
               DB_PASSWORD=DB_PASSWORD:latest,

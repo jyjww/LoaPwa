@@ -1,9 +1,11 @@
-// ===== Cache (버전 바꾸면 강제 갱신) =====
+// public/firebase-messaging-sw.js
+
+// // ===== Cache (버전 바꾸면 강제 갱신) =====
 const CACHE = 'loa-sw-v2';
 const PRECACHE = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  // 무한 새로고침 방지를 위해 즉시 skipWaiting은 하지 않음
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
 });
 
@@ -12,7 +14,7 @@ self.addEventListener('activate', (event) => {
     (async () => {
       const keys = await caches.keys();
       await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
-      await self.clients.claim();
+      // 자동 clients.claim()도 즉시 호출하지 않음 (초기 컨트롤러 교체 충돌 최소화)
     })(),
   );
 });
@@ -235,3 +237,8 @@ self.addEventListener('notificationclick', (event) => {
     })(),
   );
 });
+
+// (선택) 앱에서 강제 업데이트 트리거를 원할 때 사용할 메시지 훅
+// self.addEventListener('message', (e) => {
+//   if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+// });

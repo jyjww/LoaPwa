@@ -14,6 +14,8 @@ import { MarketModule } from './markets/market.module';
 import { AuthModule } from './auth/auth.module';
 import { FavoritesModule } from './favorites/favorite.module';
 import { FcmModule } from './fcm/fcm.module';
+import { AppCacheModule } from './cache/cache.module';
+import { WatchModule } from './watch/watch.module';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -70,13 +72,15 @@ const isProd = process.env.NODE_ENV === 'production';
 
     // 2) TypeORM: dev는 DATABASE_URL, prod는 개별 항목(Cloud SQL 소켓 포함)
     TypeOrmModule.forRootAsync({
-      
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => {
         console.log('[BOOTCFG]', {
           NODE_ENV: process.env.NODE_ENV,
           DATABASE_URL: process.env.DATABASE_URL,
-          using: (process.env.NODE_ENV !== 'production' && process.env.DATABASE_URL) ? 'DEV_URL' : 'PROD_FIELDS'
+          using:
+            process.env.NODE_ENV !== 'production' && process.env.DATABASE_URL
+              ? 'DEV_URL'
+              : 'PROD_FIELDS',
         });
         const prod = cfg.get<'development' | 'test' | 'production'>('NODE_ENV') === 'production';
         const url = cfg.get<string>('DATABASE_URL');
@@ -118,6 +122,8 @@ const isProd = process.env.NODE_ENV === 'production';
     AuthModule,
     FavoritesModule,
     FcmModule,
+    AppCacheModule,
+    WatchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

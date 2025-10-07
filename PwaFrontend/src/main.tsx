@@ -1,4 +1,3 @@
-// src/main.tsx
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
@@ -31,6 +30,8 @@ if ('serviceWorker' in navigator) {
   // 2-1) 새 컨트롤러 적용 시 1회 새로고침
   let reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // 최초 설치(컨트롤러 없음) 시에는 새로고침하지 않음
+    if (!navigator.serviceWorker.controller) return;
     if (!reloaded) {
       reloaded = true;
       location.reload();
@@ -55,10 +56,6 @@ if ('serviceWorker' in navigator) {
         console.log('[SW] DEV registered:', devReg.scope);
       } else if (import.meta.env.PROD) {
         // ● 운영모드: 앱 전체 SW 등록
-        const appReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        console.log('[SW] App registered:', appReg.scope);
-
-        // (선택) FCM 백그라운드 메시지 핸들러 SW
         //  - CI에서 public/firebase-messaging-sw.js를 생성해둔 경우만 등록됨
         try {
           const fcmReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
