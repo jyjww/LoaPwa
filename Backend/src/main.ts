@@ -11,29 +11,39 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
 
-  const dataSource = app.get(DataSource);
-  const [{ current_database, current_user, current_schema, search_path }] = await dataSource.query(`
-    select
-      current_database(),
-      current_user,
-      current_schema(),
-      current_setting('search_path') as search_path
-  `);
-  console.log('[DB]', { current_database, current_user, current_schema, search_path });
+  // DB 연결 및 마이그레이션은 선택적 - 실패해도 부팅 지속
+  try {
+    const dataSource = app.get(DataSource);
+    const [{ current_database, current_user, current_schema, search_path }] =
+      await dataSource.query(`
+      select
+        current_database(),
+        current_user,
+        current_schema(),
+        current_setting('search_path') as search_path
+    `);
+    console.log('[DB]', { current_database, current_user, current_schema, search_path });
 
-  console.log('[MIGR] __dirname =', __dirname);
-  console.log('[MIGR] dir exists?', existsSync(__dirname + '/migrations'));
-  if (existsSync(__dirname + '/migrations')) {
-    console.log('[MIGR] files =', readdirSync(__dirname + '/migrations'));
-  }
-  console.log(
-    '[MIGR] DS.migrations =',
-    dataSource.migrations?.map((m) => m.name),
-  );
+    console.log('[MIGR] __dirname =', __dirname);
+    console.log('[MIGR] dir exists?', existsSync(__dirname + '/migrations'));
+    if (existsSync(__dirname + '/migrations')) {
+      console.log('[MIGR] files =', readdirSync(__dirname + '/migrations'));
+    }
+    console.log(
+      '[MIGR] DS.migrations =',
+      dataSource.migrations?.map((m) => m.name),
+    );
 
-  if (process.env.MIGRATE_ON_BOOT === '1') {
-    console.log('[BOOT] Running TypeORM migrations...');
-    await dataSource.runMigrations();
+    // MIGRATE_ON_BOOT 기본값은 false (Cloud Run 첫 부팅 테스트용)
+    if (process.env.MIGRATE_ON_BOOT === '1') {
+      console.log('[BOOT] Running TypeORM migrations...');
+      await dataSource.runMigrations();
+    }
+  } catch (error) {
+    console.warn(
+      '[DB] Database connection or migration failed, continuing startup:',
+      error.message,
+    );
   }
 
   app.use(cookieParser());
