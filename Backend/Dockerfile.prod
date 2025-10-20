@@ -26,4 +26,5 @@ RUN chmod +x ./entrypoint.sh
 # TypeORM CLI가 dist에서 마이그 돌릴 수 있게 node_modules 포함
 COPY --from=builder /app/Backend/node_modules ./node_modules
 
-CMD ["./entrypoint.sh"]
+# CMD ["./entrypoint.sh"]
+CMD ["node", "dist/main.js"]
