@@ -62,5 +62,9 @@ async function bootstrap() {
   console.log(`[DEBUG] Final Port is: ${port}`);
   await app.listen(port, '0.0.0.0');
   console.log(`[bootstrap] listening on ${port}`);
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .get('/healthz', (_req, res) => res.status(200).send('ok'));
 }
 bootstrap();
