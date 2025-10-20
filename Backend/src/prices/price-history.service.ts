@@ -1,6 +1,7 @@
 // src/prices/price-history.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { RedisService } from '@/cache/redis.service';
 
 type GetSeriesOpts = {
   bucket: 'minute' | 'hour' | 'day';
@@ -11,18 +12,84 @@ type GetSeriesOpts = {
 
 @Injectable()
 export class PriceHistoryService {
-  constructor(private ds: DataSource) {}
+  private readonly log = new Logger(PriceHistoryService.name);
+
+  constructor(
+    private ds: DataSource,
+    private redis: RedisService,
+  ) {}
 
   /**
    * fromDays 구간을 bucket 단위로 집계해 시계열 반환
-   * - bucket: 'minute' | 'hour' | 'day'
-   * - minuteStep/hourStep으로 간격 조절 (기본: minute=10분, hour=1시간)
+   *
+   * 전략: Redis 우선 조회 → DB fallback
+   * - Redis: price:hist:{itemKey} ZSET (score=ts, member=price)
+   * - DB: price_history 테이블 (복잡한 집계 쿼리)
    */
   async getSeries(itemKey: string, opts: GetSeriesOpts) {
-    const unit = opts.bucket; // 'minute' | 'hour' | 'day'
+    const fromDays = opts.fromDays ?? 7;
+    const now = Date.now();
+    const fromMs = now - fromDays * 24 * 60 * 60 * 1000;
+
+    // 1) Redis에서 조회 시도
+    try {
+      const redisData = await this.getSeriesFromRedis(itemKey, fromMs, now, opts);
+      if (redisData && redisData.length > 0) {
+        this.log.debug(`✅ Redis hit: ${itemKey} (${redisData.length} points)`);
+        return redisData;
+      }
+    } catch (err) {
+      this.log.warn(`⚠️ Redis query failed for ${itemKey}: ${(err as Error).message}`);
+    }
+
+    // 2) Redis에 없으면 DB fallback
+    this.log.debug(`💾 DB fallback: ${itemKey}`);
+    return this.getSeriesFromDB(itemKey, opts);
+  }
+
+  /**
+   * Redis ZSET에서 가격 히스토리 조회 후 bucket 집계
+   */
+  private async getSeriesFromRedis(
+    itemKey: string,
+    fromMs: number,
+    toMs: number,
+    opts: GetSeriesOpts,
+  ) {
+    const histKey = `price:hist:${itemKey}`;
+
+    // ZRANGEBYSCORE로 범위 조회 (WITHSCORES)
+    const rawData = await this.redis.zrangebyscore(histKey, fromMs, toMs, true);
+
+    if (!rawData || rawData.length === 0) {
+      return null;
+    }
+
+    // rawData: [price1, ts1, price2, ts2, ...]
+    const points: Array<{ ts: number; price: number }> = [];
+    for (let i = 0; i < rawData.length; i += 2) {
+      const price = parseFloat(rawData[i]);
+      const ts = parseInt(rawData[i + 1], 10);
+      if (!isNaN(price) && !isNaN(ts)) {
+        points.push({ ts, price });
+      }
+    }
+
+    if (points.length === 0) {
+      return null;
+    }
+
+    // bucket 단위로 집계
+    return this.aggregateToBucket(points, opts, fromMs, toMs);
+  }
+
+  /**
+   * DB에서 가격 히스토리 조회 (기존 로직)
+   */
+  private async getSeriesFromDB(itemKey: string, opts: GetSeriesOpts) {
+    const unit = opts.bucket;
     const fromDays = opts.fromDays ?? 7;
 
-    // generate_series step interval 계산
     let stepInterval = '1 hour';
     if (unit === 'minute') {
       const step = Math.max(1, Number(opts.minuteStep ?? 10));
@@ -34,8 +101,6 @@ export class PriceHistoryService {
       stepInterval = `1 day`;
     }
 
-    // date_trunc(unit, ...) 에 들어갈 unit은 'minute' | 'hour' | 'day'
-    // generate_series 간격은 interval 문자열(stepInterval)
     const rows = await this.ds.query(
       `
       WITH ts AS (
@@ -68,5 +133,54 @@ export class PriceHistoryService {
       price: r.avg_price != null ? Number(r.avg_price) : null,
       lastAt: r.last_at ?? null,
     }));
+  }
+
+  /**
+   * Redis raw 데이터를 bucket 단위로 집계
+   */
+  private aggregateToBucket(
+    points: Array<{ ts: number; price: number }>,
+    opts: GetSeriesOpts,
+    fromMs: number,
+    toMs: number,
+  ) {
+    const { bucket, minuteStep = 10, hourStep = 1 } = opts;
+
+    // bucket 크기 계산 (ms)
+    let bucketSizeMs: number;
+    if (bucket === 'minute') {
+      bucketSizeMs = minuteStep * 60 * 1000;
+    } else if (bucket === 'hour') {
+      bucketSizeMs = hourStep * 60 * 60 * 1000;
+    } else {
+      // day
+      bucketSizeMs = 24 * 60 * 60 * 1000;
+    }
+
+    // bucket별 그룹화
+    const buckets = new Map<number, Array<{ ts: number; price: number }>>();
+
+    for (const point of points) {
+      const bucketStart = Math.floor(point.ts / bucketSizeMs) * bucketSizeMs;
+      if (!buckets.has(bucketStart)) {
+        buckets.set(bucketStart, []);
+      }
+      buckets.get(bucketStart)!.push(point);
+    }
+
+    // 평균 계산 및 정렬
+    const result = Array.from(buckets.entries())
+      .map(([bucketStart, pts]) => {
+        const avgPrice = pts.reduce((sum, p) => sum + p.price, 0) / pts.length;
+        const lastTs = Math.max(...pts.map((p) => p.ts));
+        return {
+          t: new Date(bucketStart),
+          price: Math.round(avgPrice * 100) / 100,
+          lastAt: new Date(lastTs),
+        };
+      })
+      .sort((a, b) => a.t.getTime() - b.t.getTime());
+
+    return result;
   }
 }

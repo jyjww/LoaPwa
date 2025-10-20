@@ -16,6 +16,8 @@ import { FavoritesModule } from './favorites/favorite.module';
 import { FcmModule } from './fcm/fcm.module';
 import { AppCacheModule } from './cache/cache.module';
 import { WatchModule } from './watch/watch.module';
+import { DebugModule } from './debug/debug.module';
+import { PriceModule } from './prices/price.module';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -124,6 +126,8 @@ const isProd = process.env.NODE_ENV === 'production';
     FcmModule,
     AppCacheModule,
     WatchModule,
+    DebugModule,
+    PriceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, TrendingDown, TrendingUp } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Alarm from '@/pages/Alarm';
+import { calculate7DayChange, type PriceChange } from '@/services/price-history.service';
 
 interface ItemOption {
   name: string;
@@ -43,6 +44,7 @@ interface ItemCardProps {
   onFavorite?: (item: any) => void;
   favoriteId?: string; // ← 이 값만으로 즐겨찾기 상태 판단
   showAlarm?: boolean;
+  matchKey?: string; // ← price history 조회용 matchKey 추가
 }
 
 const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -65,9 +67,39 @@ function extractAuctionInfo(item: any): AuctionInfoMerged {
   return { ...pick(candInfo), ...pick(candTop) };
 }
 
-const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm }: ItemCardProps) => {
+const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm, matchKey }: ItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
+  const [isLoadingChange, setIsLoadingChange] = useState(true);
   const isFaved = !!favoriteId;
+
+  // 7일 가격 변동폭 계산 (즐겨찾기한 아이템만)
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPriceChange = async () => {
+      // 즐겨찾기된 아이템만 변동폭 계산
+      if (!isFaved) {
+        setIsLoadingChange(false);
+        return;
+      }
+
+      // auction 아이템은 matchKey를 그대로 사용 (예: auc:13ae8604)
+      const itemKey = matchKey || item.id;
+      setIsLoadingChange(true);
+      const change = await calculate7DayChange(itemKey, item.previousPrice || undefined);
+      if (mounted) {
+        setPriceChange(change);
+        setIsLoadingChange(false);
+      }
+    };
+
+    loadPriceChange();
+
+    return () => {
+      mounted = false;
+    };
+  }, [item.id, isFaved, matchKey]);
 
   const gradeColors: Record<string, string> = {
     일반: 'bg-gray-600 text-white border-gray-600',
@@ -89,10 +121,6 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm }: ItemCardPr
   const buy = num(ai.BuyPrice);
   const bid = num(ai.BidStartPrice) ?? num(ai.StartPrice);
   const fallbackCurrent = num(item.currentPrice);
-
-  const effectiveCurrent = buy != null && buy > 0 ? buy : (bid ?? fallbackCurrent ?? 0);
-  const base = bid ?? num(item.previousPrice) ?? 0;
-  const changePct = base ? ((effectiveCurrent - base) / base) * 100 : 0;
 
   const endedByTime = typeof ai.EndDate === 'string' ? new Date(ai.EndDate) <= new Date() : false;
   const endedBySnapshot = (buy == null || buy <= 0) && bid == null && fallbackCurrent != null;
@@ -206,18 +234,21 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm }: ItemCardPr
             </div>
           )}
 
-          {base > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Change</span>
+          {/* ✅ 7일 변동폭 (즐겨찾기된 아이템만) */}
+          {isFaved && !isLoadingChange && priceChange && (
+            <div className="flex items-center justify-between pt-1 border-t border-border/40">
+              <span className="text-xs text-muted-foreground">7일 변동</span>
               <div
-                className={`flex items-center gap-1 text-xs sm:text-sm ${changePct > 0 ? 'text-destructive' : 'text-accent'}`}
+                className={`flex items-center gap-1 text-xs sm:text-sm font-medium ${
+                  priceChange.changePct > 0 ? 'text-destructive' : 'text-green-600'
+                }`}
               >
-                {changePct > 0 ? (
+                {priceChange.changePct > 0 ? (
                   <TrendingUp className="h-3 w-3" />
                 ) : (
                   <TrendingDown className="h-3 w-3" />
                 )}
-                <span>{Math.abs(changePct).toFixed(1)}%</span>
+                <span>{Math.abs(priceChange.changePct).toFixed(1)}%</span>
               </div>
             </div>
           )}

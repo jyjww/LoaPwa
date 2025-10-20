@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
 import MarketItemCard from '@/components/MarketItemCard';
@@ -14,6 +15,7 @@ import {
   removeFavorite,
 } from '@/services/favorites/favorites.service';
 import { useFavoriteLookup } from '@/hooks/useFavoriteLookup';
+import { ItemPriceService } from '@/services/item-price.service';
 
 const Market = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | 'All'>('All');
@@ -47,6 +49,13 @@ const Market = () => {
   const { toast } = useToast();
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
 
+  // 가격 정렬 관련 상태
+  const [priceSortEnabled, setPriceSortEnabled] = useState(false);
+  const [priceSortOrder, setPriceSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [isCollectingPrices, setIsCollectingPrices] = useState(false);
+  const [sortedPriceItems, setSortedPriceItems] = useState<any[]>([]);
+  const [cachedSearchHash, setCachedSearchHash] = useState<string | null>(null);
+
   // ✅ 최초 마운트 시 즐겨찾기 로드
   useEffect(() => {
     (async () => {
@@ -69,6 +78,81 @@ const Market = () => {
       console.warn('[Market] refreshFavorites failed:', e);
     }
   }, []);
+
+  // 가격 정렬 데이터 수집
+  const collectPriceData = useCallback(async () => {
+    if (isCollectingPrices) return;
+
+    setIsCollectingPrices(true);
+    try {
+      const searchRequest = {
+        query: filters.query,
+        grade: filters.grade,
+        tier: filters.tier,
+        className: filters.className,
+        category: filters.category,
+        subCategory: filters.subCategory,
+      };
+
+      const result = await ItemPriceService.collectAndSortMarketResults(searchRequest, {
+        sort: priceSortOrder,
+        limit: 100,
+      });
+
+      setCachedSearchHash(result.searchHash);
+      setPriceSortEnabled(true);
+
+      console.log(`🔑 Saved search hash: ${result.searchHash}`);
+      console.log(`🔑 Full result object:`, result);
+
+      // 수집 완료 후 정렬된 데이터 조회
+      setTimeout(() => {
+        fetchSortedPriceData();
+      }, 1000);
+
+      console.log(`✅ Collected ${result.total} market items for price sorting`);
+    } catch (error) {
+      console.error('❌ Failed to collect price data:', error);
+    } finally {
+      setIsCollectingPrices(false);
+    }
+  }, [filters, priceSortOrder, isCollectingPrices]);
+
+  // 정렬된 가격 데이터 조회
+  const fetchSortedPriceData = useCallback(async () => {
+    if (!priceSortEnabled || !cachedSearchHash) return;
+
+    console.log(`🔍 Fetching sorted data with hash: ${cachedSearchHash}`);
+    console.log(
+      `🔍 Current state - priceSortEnabled: ${priceSortEnabled}, cachedSearchHash: ${cachedSearchHash}`,
+    );
+
+    try {
+      const requestData = {
+        source: 'market' as const,
+        searchHash: cachedSearchHash,
+        sort: priceSortOrder,
+        limit: 100,
+        offset: 0,
+      };
+      console.log(`📤 API request data:`, requestData);
+
+      const result = await ItemPriceService.getSortedSearchResultsByHash(requestData);
+
+      setSortedPriceItems(result.items);
+      console.log(`📊 Retrieved ${result.items.length} sorted market items (${priceSortOrder})`);
+    } catch (error) {
+      console.error('❌ Failed to fetch sorted price data:', error);
+      setSortedPriceItems([]);
+    }
+  }, [priceSortEnabled, cachedSearchHash, priceSortOrder]);
+
+  // 정렬 순서 변경 시 데이터 다시 조회
+  useEffect(() => {
+    if (priceSortEnabled) {
+      fetchSortedPriceData();
+    }
+  }, [priceSortOrder, fetchSortedPriceData]);
 
   const toMarketDto = (base: typeof filters, page: number) => ({
     ...base,
@@ -313,40 +397,102 @@ const Market = () => {
           </CardContent>
         </Card>
 
-        {/* 결과 헤더 (원본 UX 유지) */}
+        {/* 결과 헤더 */}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">
             {totalCount != null ? `${totalCount} items found` : `${items.length} items found`}
           </h2>
+
+          {/* 가격 정렬 컨트롤 */}
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={collectPriceData}
+                    disabled={isCollectingPrices}
+                    className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {isCollectingPrices ? '수집 중...' : '가격 정렬'}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {isCollectingPrices
+                      ? '검색 결과를 수집하고 있습니다...'
+                      : '모든 검색 결과를 수집하여 가격별로 정렬합니다'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {priceSortEnabled && (
+              <div className="flex items-center gap-2">
+                <select
+                  value={priceSortOrder}
+                  onChange={(e) => setPriceSortOrder(e.target.value as 'asc' | 'desc')}
+                  className="px-2 py-1 text-sm border rounded"
+                >
+                  <option value="asc">낮은 가격순</option>
+                  <option value="desc">높은 가격순</option>
+                </select>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* 결과 그리드 (원본 유지: filteredItems가 아닌 items 사용) */}
+        {/* 결과 그리드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item, index) => {
-            // ✅ 각 아이템에 매칭되는 즐겨찾기 조회
-            const fav = getMarketFavorite(item.id);
-            return (
-              <MarketItemCard
-                key={`${item.id}-${index}`}
-                item={{
-                  id: item.id,
-                  name: item.name,
-                  grade: item.grade,
-                  icon: item.icon,
-                  quality: item.quality,
-                  marketInfo: {
-                    currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
-                    yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
-                    recentPrice: item.marketInfo?.recentPrice ?? 0,
-                    tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
-                  },
-                }}
-                onFavorite={handleFavorite}
-                isFavorite={!!fav} // ✅ 카드에 상태 전달
-                favoriteId={fav?.id ?? ''} // ✅ Alarm에 서버 UUID 전달 (없으면 빈 문자열)
-              />
-            );
-          })}
+          {(priceSortEnabled && sortedPriceItems.length > 0 ? sortedPriceItems : filteredItems).map(
+            (item, index) => {
+              // 정렬된 아이템의 경우 metadata에서 정보 추출
+              const displayItem =
+                priceSortEnabled && sortedPriceItems.length > 0
+                  ? {
+                      id: item.id,
+                      name: item.metadata.name,
+                      grade: item.metadata.grade,
+                      icon: item.metadata.icon,
+                      quality: item.metadata.quality,
+                      bundleCount: item.metadata.bundleCount,
+                      currentPrice: item.price,
+                      marketInfo: {
+                        currentMinPrice: item.price,
+                        yDayAvgPrice: item.metadata.marketInfo?.yDayAvgPrice ?? 0,
+                        recentPrice: item.metadata.marketInfo?.recentPrice ?? 0,
+                        tradeRemainCount: item.metadata.marketInfo?.tradeRemainCount ?? 0,
+                      },
+                    }
+                  : {
+                      id: item.id,
+                      name: item.name,
+                      grade: item.grade,
+                      icon: item.icon,
+                      quality: item.quality,
+                      currentPrice: item.marketInfo?.currentMinPrice ?? 0,
+                      previousPrice: item.marketInfo?.yDayAvgPrice ?? 0,
+                      marketInfo: {
+                        currentMinPrice: item.marketInfo?.currentMinPrice ?? 0,
+                        yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
+                        recentPrice: item.marketInfo?.recentPrice ?? 0,
+                        tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
+                      },
+                    };
+
+              // ✅ 각 아이템에 매칭되는 즐겨찾기 조회
+              const fav = getMarketFavorite(displayItem.id);
+              return (
+                <MarketItemCard
+                  key={`${displayItem.id}-${index}`}
+                  item={displayItem}
+                  onFavorite={handleFavorite}
+                  isFavorite={!!fav} // ✅ 카드에 상태 전달
+                  favoriteId={fav?.id ?? ''} // ✅ Alarm에 서버 UUID 전달 (없으면 빈 문자열)
+                  matchKey={fav?.matchKey || undefined} // ✅ 즐겨찾기된 아이템만 matchKey 전달
+                />
+              );
+            },
+          )}
         </div>
 
         {/* 무한 스크롤 sentinel */}

@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "node"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "resolvePackageJsonExports": false,
+    "esModuleInterop": true,
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared/*": ["shared/*"]
+    }
+  },
+  "include": ["./**/*.ts", "../src/**/*.ts", "../shared/**/*.ts"],
+  "exclude": ["../node_modules", "../dist"]
+}

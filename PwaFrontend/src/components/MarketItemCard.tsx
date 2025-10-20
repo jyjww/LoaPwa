@@ -2,9 +2,10 @@ import clsx from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star } from 'lucide-react';
-import { useState } from 'react';
+import { Star, TrendingDown, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Alarm from '@/pages/Alarm';
+import { calculate7DayChange, type PriceChange } from '@/services/price-history.service';
 
 interface MarketItemCardProps {
   item: {
@@ -13,6 +14,8 @@ interface MarketItemCardProps {
     grade: string;
     icon?: string;
     quality?: number;
+    currentPrice?: number | null;
+    previousPrice?: number | null;
     marketInfo?: {
       currentMinPrice: number;
       yDayAvgPrice?: number;
@@ -26,6 +29,7 @@ interface MarketItemCardProps {
   isFavorite?: boolean;
   favoriteId?: string;
   showAlarm?: boolean;
+  matchKey?: string; // ← price history 조회용 matchKey 추가
 }
 
 const MarketItemCard = ({
@@ -34,9 +38,11 @@ const MarketItemCard = ({
   isFavorite = false,
   favoriteId,
   showAlarm,
+  matchKey,
 }: MarketItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
-  // const location = useLocation();
+  const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
+  const [isLoadingChange, setIsLoadingChange] = useState(true);
 
   const handleFavorite = () => {
     setIsAnimating(true);
@@ -45,6 +51,34 @@ const MarketItemCard = ({
   };
 
   const isFaved = isFavorite || !!favoriteId;
+
+  // 7일 가격 변동폭 계산 (즐겨찾기한 아이템만)
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPriceChange = async () => {
+      // 즐겨찾기된 아이템만 변동폭 계산
+      if (!isFaved) {
+        setIsLoadingChange(false);
+        return;
+      }
+
+      setIsLoadingChange(true);
+      // market 아이템은 matchKey를 그대로 사용 (예: mkt:301230463)
+      const itemKey = matchKey || item.id;
+      const change = await calculate7DayChange(itemKey, (item as any).previousPrice || undefined);
+      if (mounted) {
+        setPriceChange(change);
+        setIsLoadingChange(false);
+      }
+    };
+
+    loadPriceChange();
+
+    return () => {
+      mounted = false;
+    };
+  }, [item.id, isFaved]);
 
   const gradeColors: Record<string, string> = {
     일반: 'bg-gray-600 text-white border-gray-600',
@@ -150,6 +184,25 @@ const MarketItemCard = ({
               <Badge variant="secondary" className="text-xs">
                 {item.marketInfo?.tradeRemainCount ?? 0}
               </Badge>
+            </div>
+          )}
+
+          {/* ✅ 7일 변동폭 (즐겨찾기된 아이템만) */}
+          {isFaved && !isLoadingChange && priceChange && (
+            <div className="flex items-center justify-between pt-1 border-t border-border/40">
+              <span className="text-xs text-muted-foreground">7일 변동</span>
+              <div
+                className={`flex items-center gap-1 text-xs sm:text-sm font-medium ${
+                  priceChange.changePct > 0 ? 'text-destructive' : 'text-green-600'
+                }`}
+              >
+                {priceChange.changePct > 0 ? (
+                  <TrendingUp className="h-3 w-3" />
+                ) : (
+                  <TrendingDown className="h-3 w-3" />
+                )}
+                <span>{Math.abs(priceChange.changePct).toFixed(1)}%</span>
+              </div>
             </div>
           )}
         </div>

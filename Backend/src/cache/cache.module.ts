@@ -3,41 +3,52 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 import { CacheController } from './cache.controller';
 import { AppCache } from './app-cache.service';
+import { RedisService } from './redis.service';
+import { ItemPriceCacheService } from './item-price-cache.service';
+import { SearchCacheService } from './search-cache.service';
+import { ItemPriceController } from './item-price.controller';
+import { forwardRef } from '@nestjs/common';
+import { AuctionModule } from '../auctions/auction.module';
+import { MarketModule } from '../markets/market.module';
 
 @Module({
   imports: [
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => {
-        if (!process.env.REDIS_URL) return { ttl: 60 };
+        // Redis URL 없으면 인메모리 fallback
+        if (!process.env.REDIS_URL) {
+          console.log('[AppCacheModule] ⚠️ REDIS_URL not set, using in-memory cache');
+          return { ttl: 60 };
+        }
 
-        if (process.env.REDIS_URL) {
+        try {
+          console.log('[AppCacheModule] 🔗 Connecting to Redis...');
+          const store = await redisStore({
+            url: process.env.REDIS_URL,
+            // Upstash TLS 설정 (ioredis 규격)
+            socket: {
+              tls: true,
+              rejectUnauthorized: false, // Upstash 인증서 검증 우회
+            },
+          });
+          console.log('[AppCacheModule] ✅ Redis store created successfully');
           return {
-            store: await redisStore({
-              url: process.env.REDIS_URL, // rediss://default:...
-              socket: { tls: true }, // Upstash는 TLS
-            }),
+            store,
             ttl: 60,
           };
+        } catch (error) {
+          console.error('[AppCacheModule] ❌ Redis connection failed:', error);
+          console.log('[AppCacheModule] ⚠️ Falling back to in-memory cache');
+          return { ttl: 60 }; // 실패 시 인메모리 fallback
         }
-        // Redis 미설정 시 인메모리 fallback
-        return {
-          store: await redisStore({
-            url: process.env.REDIS_URL,
-            tls: {}, // Upstash는 TLS 필요
-            // 아래 옵션들은 ioredis 규격 (cache-manager-redis-yet 내부가 ioredis)
-            retryStrategy: (times: number) => Math.min(times * 200, 2000),
-            maxRetriesPerRequest: 1,
-            enableOfflineQueue: false,
-            reconnectOnError: () => true,
-          } as any),
-          ttl: 60, // 기본 TTL
-        };
       },
     }),
+    forwardRef(() => AuctionModule),
+    forwardRef(() => MarketModule),
   ],
-  controllers: [CacheController],
-  providers: [AppCache],
-  exports: [AppCache],
+  controllers: [CacheController, ItemPriceController],
+  providers: [AppCache, RedisService, ItemPriceCacheService, SearchCacheService],
+  exports: [AppCache, RedisService, ItemPriceCacheService, SearchCacheService],
 })
 export class AppCacheModule {}

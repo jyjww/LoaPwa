@@ -1,6 +1,7 @@
 // src/pages/AuctionHouse.tsx
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Navigation from '@/components/Navigation';
 import ItemCard from '@/components/AuctionItemCard';
 import { Search } from 'lucide-react';
@@ -16,6 +17,7 @@ import {
 } from '@/services/favorites/favorites.service';
 import { makeAuctionKey, type CategoryKey } from '@shared/matchAuctionKey';
 import { useFavoriteLookup } from '@/hooks/useFavoriteLookup';
+import { ItemPriceService } from '@/services/item-price.service';
 
 type CanonOption = { name: string; value: number; displayValue: number };
 
@@ -72,6 +74,13 @@ const AuctionHouse = () => {
   // 즉시구매가가 있는 제품만 조회
   const [onlyBuyNow, setOnlyBuyNow] = useState(false);
 
+  // 가격 정렬 관련 상태
+  const [priceSortEnabled, setPriceSortEnabled] = useState(false);
+  const [priceSortOrder, setPriceSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [isCollectingPrices, setIsCollectingPrices] = useState(false);
+  const [sortedPriceItems, setSortedPriceItems] = useState<any[]>([]);
+  const [cachedSearchHash, setCachedSearchHash] = useState<string | null>(null);
+
   // 최초 로드 시 즐겨찾기 가져오기
   useEffect(() => {
     (async () => {
@@ -94,6 +103,83 @@ const AuctionHouse = () => {
       console.warn('[Auction] refreshFavorites failed:', e);
     }
   }, []);
+
+  // 가격 정렬 데이터 수집
+  const collectPriceData = useCallback(async () => {
+    if (isCollectingPrices) return;
+
+    setIsCollectingPrices(true);
+    try {
+      const searchRequest = {
+        query: filters.query,
+        grade: filters.grade,
+        tier: filters.tier,
+        className: filters.className,
+        category: filters.category,
+        subCategory: filters.subCategory,
+        etcOptions: filters.etcOptions,
+        onlyBuyNow,
+      };
+
+      const result = await ItemPriceService.collectAndSortAuctionResults(searchRequest, {
+        sort: priceSortOrder,
+        limit: 100,
+      });
+
+      setCachedSearchHash(result.searchHash);
+      setPriceSortEnabled(true);
+
+      console.log(`🔑 Saved search hash: ${result.searchHash}`);
+      console.log(`🔑 Full result object:`, result);
+
+      // 수집 완료 후 정렬된 데이터 조회
+      setTimeout(() => {
+        fetchSortedPriceData();
+      }, 1000);
+
+      console.log(`✅ Collected ${result.total} auction items for price sorting`);
+    } catch (error) {
+      console.error('❌ Failed to collect price data:', error);
+    } finally {
+      setIsCollectingPrices(false);
+    }
+  }, [filters, onlyBuyNow, priceSortOrder, isCollectingPrices]);
+
+  // 정렬된 가격 데이터 조회
+  const fetchSortedPriceData = useCallback(async () => {
+    if (!priceSortEnabled || !cachedSearchHash) return;
+
+    console.log(`🔍 Fetching sorted data with hash: ${cachedSearchHash}`);
+    console.log(
+      `🔍 Current state - priceSortEnabled: ${priceSortEnabled}, cachedSearchHash: ${cachedSearchHash}`,
+    );
+
+    try {
+      const requestData = {
+        source: 'auction' as const,
+        searchHash: cachedSearchHash,
+        sort: priceSortOrder,
+        limit: 100,
+        offset: 0,
+      };
+      console.log(`📤 API request data:`, requestData);
+
+      const result = await ItemPriceService.getSortedSearchResultsByHash(requestData);
+
+      setSortedPriceItems(result.items);
+      console.log(`📊 Retrieved ${result.items.length} sorted auction items (${priceSortOrder})`);
+    } catch (error) {
+      console.error('❌ Failed to fetch sorted price data:', error);
+      setSortedPriceItems([]);
+    }
+  }, [priceSortEnabled, cachedSearchHash, priceSortOrder]);
+
+  // 정렬 순서 변경 시 데이터 다시 조회
+  useEffect(() => {
+    if (priceSortEnabled) {
+      fetchSortedPriceData();
+    }
+  }, [priceSortOrder, fetchSortedPriceData]);
 
   const triggerSearch = (reset = true) => {
     window.clearTimeout(debRef.current);
@@ -304,56 +390,115 @@ const AuctionHouse = () => {
           <h2 className="text-xl font-semibold">
             {loading ? 'Loading...' : `${totalCount} items found`}
           </h2>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={onlyBuyNow}
-              onChange={(e) => setOnlyBuyNow(e.target.checked)}
-            />
-            즉시구매가 있는 매물만
-          </label>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={onlyBuyNow}
+                onChange={(e) => setOnlyBuyNow(e.target.checked)}
+              />
+              즉시구매가 있는 매물만
+            </label>
+
+            {/* 가격 정렬 컨트롤 */}
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={collectPriceData}
+                      disabled={isCollectingPrices}
+                      className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {isCollectingPrices ? '수집 중...' : '가격 정렬'}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {isCollectingPrices
+                        ? '검색 결과를 수집하고 있습니다...'
+                        : '모든 검색 결과를 수집하여 가격별로 정렬합니다'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {priceSortEnabled && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={priceSortOrder}
+                    onChange={(e) => setPriceSortOrder(e.target.value as 'asc' | 'desc')}
+                    className="px-2 py-1 text-sm border rounded"
+                  >
+                    <option value="asc">낮은 가격순</option>
+                    <option value="desc">높은 가격순</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ✅ 즐겨찾기 상태 내려주기: isFavorite / favoriteId */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item, idx) => {
-            const { category, name, grade, tier, quality, canonOptions } = buildKeyParts(item);
+          {(priceSortEnabled && sortedPriceItems.length > 0 ? sortedPriceItems : filteredItems).map(
+            (item, idx) => {
+              // 정렬된 아이템의 경우 metadata에서 정보 추출
+              const displayItem =
+                priceSortEnabled && sortedPriceItems.length > 0
+                  ? {
+                      id: item.id,
+                      name: item.metadata.name,
+                      grade: item.metadata.grade,
+                      tier: item.metadata.tier,
+                      quality: item.metadata.quality,
+                      icon: item.metadata.icon,
+                      currentPrice: item.price,
+                      auctionInfo: item.metadata.auctionInfo,
+                      options: item.metadata.options || [],
+                    }
+                  : item;
 
-            const matchKey = makeAuctionKey(
-              { name, grade, tier, quality, options: canonOptions },
-              category,
-            );
+              const { category, name, grade, tier, quality, canonOptions } =
+                buildKeyParts(displayItem);
 
-            const priceSig =
-              item.currentPrice != null || item.previousPrice != null || item.tradeCount != null
-                ? `${item.currentPrice ?? ''}-${item.previousPrice ?? ''}-${item.tradeCount ?? ''}`
-                : undefined;
+              const matchKey = makeAuctionKey(
+                { name, grade, tier, quality, options: canonOptions },
+                category,
+              );
 
-            const uniqueness =
-              item.id ??
-              item.auctionInfo?.Uid ??
-              item.info?.auctionInfo?.Uid ??
-              item.auctionInfo?.EndDate ??
-              item.info?.auctionInfo?.EndDate ??
-              priceSig ??
-              idx;
+              const priceSig =
+                item.currentPrice != null || item.previousPrice != null || item.tradeCount != null
+                  ? `${item.currentPrice ?? ''}-${item.previousPrice ?? ''}-${item.tradeCount ?? ''}`
+                  : undefined;
 
-            const rowKey = `${matchKey}-${uniqueness}`;
+              const uniqueness =
+                item.id ??
+                item.auctionInfo?.Uid ??
+                item.info?.auctionInfo?.Uid ??
+                item.auctionInfo?.EndDate ??
+                item.info?.auctionInfo?.EndDate ??
+                priceSig ??
+                idx;
 
-            const fav = getAuctionFavorite(
-              toAuctionLike({ name, grade, tier, quality, canonOptions }),
-            );
+              const rowKey = `${matchKey}-${uniqueness}`;
 
-            return (
-              <ItemCard
-                key={rowKey}
-                item={item}
-                showAlarm
-                onFavorite={() => handleToggleFavorite(item)}
-                favoriteId={fav?.id}
-              />
-            );
-          })}
+              const fav = getAuctionFavorite(
+                toAuctionLike({ name, grade, tier, quality, canonOptions }),
+              );
+
+              return (
+                <ItemCard
+                  key={rowKey}
+                  item={displayItem}
+                  showAlarm
+                  onFavorite={() => handleToggleFavorite(displayItem)}
+                  favoriteId={fav?.id}
+                  matchKey={matchKey}
+                />
+              );
+            },
+          )}
         </div>
 
         {/* 무한 스크롤 로더 */}
