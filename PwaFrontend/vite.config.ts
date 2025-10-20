@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const API_PROXY_TARGET =
+    env.VITE_API_PROXY_TARGET || (isDev ? 'http://localhost:4000' : 'http://loa-server:4000');
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -31,6 +34,7 @@ export default defineConfig(({ mode }) => {
       dedupe: ['react', 'react-dom'],
     },
     optimizeDeps: { include: ['react', 'react-dom'] },
+    esbuild: { drop: ['console', 'debugger'] },
 
     // ✅ dev 서버를 쓸 때만 server/HMR 설정을 얹는다
     server: enableHMR
@@ -47,7 +51,7 @@ export default defineConfig(({ mode }) => {
           },
           proxy: {
             '/api': {
-              target: 'http://loa-server:4000',
+              target: API_PROXY_TARGET,
               changeOrigin: true,
             },
           },

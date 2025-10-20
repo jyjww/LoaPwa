@@ -1,8 +1,18 @@
 // src/favorites/entities/favorite.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  Index,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from '@/auth/entities/user.entity';
 
 @Entity()
+@Index('idx_favorite_source_item', ['source', 'itemId']) // 조회 가속
+@Index('idx_favorite_source_match', ['source', 'matchKey'])
 export class Favorite {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -115,4 +125,10 @@ export class Favorite {
 
   @Column({ default: true })
   active: boolean;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updatedAt: Date;
 }

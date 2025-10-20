@@ -272,9 +272,16 @@ const FavoriteSection = ({
                   favoriteId={item.id}
                   showAlarm
                   onFavorite={() => {}}
+                  matchKey={item.matchKey}
                 />
               ) : (
-                <MarketItemCard item={item} isFavorite favoriteId={item.id} onFavorite={() => {}} />
+                <MarketItemCard
+                  item={item}
+                  isFavorite
+                  favoriteId={item.id}
+                  onFavorite={() => {}}
+                  matchKey={item.matchKey}
+                />
               )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
@@ -303,9 +310,16 @@ const FavoriteSection = ({
                 favoriteId={item.id}
                 showAlarm
                 onFavorite={() => {}}
+                matchKey={item.matchKey}
               />
             ) : (
-              <MarketItemCard item={item} isFavorite favoriteId={item.id} onFavorite={() => {}} />
+              <MarketItemCard
+                item={item}
+                isFavorite
+                favoriteId={item.id}
+                onFavorite={() => {}}
+                matchKey={item.matchKey}
+              />
             )}
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => onEdit(item)}>

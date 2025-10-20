@@ -6,12 +6,26 @@ import { DataSource } from 'typeorm';
 import { User } from './auth/entities/user.entity';
 import { Favorite } from './favorites/entities/favorite.entity';
 import { FcmToken } from './fcm/entities/fcm-token.entity';
+import { AutoWatch } from './watch/entities/auto-watch.entity';
+import { PriceHistory } from './prices/entities/price-history.entity';
+
+const isProd = process.env.NODE_ENV === 'production';
+const hasUrl = !!process.env.DATABASE_URL;
+
+const base = hasUrl
+  ? { url: process.env.DATABASE_URL as string }
+  : {
+      host: process.env.DB_HOST, // ex) /cloudsql/PROJECT:REGION:INSTANCE
+      port: Number(process.env.DB_PORT || 5432),
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+    };
 
 export default new DataSource({
   type: 'postgres',
-  url: process.env.DATABASE_URL, // ← CLI 실행 시 여기에 임시 DB URL을 넣을 거예요
-  entities: [User, Favorite, FcmToken], // ← 반드시 실제 엔티티들을 나열
-  migrations: ['src/migrations/*.ts'], // ← 생성 결과가 여기로 떨어짐 (ts)
+  ...base,
+  entities: [User, Favorite, FcmToken, AutoWatch, PriceHistory],
+  migrations: isProd ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
   schema: 'public',
-  // synchronize: false (기본 false)
 });

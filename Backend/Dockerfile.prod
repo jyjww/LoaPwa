@@ -1,31 +1,29 @@
-# 1) Build stage (ts → dist)
+# 1) Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app/Backend
-
-# 의존성
 COPY Backend/package*.json ./
 RUN npm ci
-
-# 소스 복사 (src/migrations 포함되어야 dist로 빌드됨)
 COPY Backend ./
+RUN npm run build  # → dist/** (src/migrations 포함되어야 함)
 
-# 빌드
-RUN npm run build
-
-# 2) Run stage (프로덕션 실행)
+# 2) Run stage
 FROM node:20-alpine AS runner
 WORKDIR /app/Backend
 ENV NODE_ENV=production
 ENV TZ=Asia/Seoul
-
-# 프로덕션 의존성 설치
-COPY --from=builder /app/Backend/package*.json ./
-RUN npm ci --omit=dev
-
-# 실행 산출물
-COPY --from=builder /app/Backend/dist ./dist
-
 EXPOSE 8080
 ENV PORT=8080
 
-CMD ["node", "dist/main.js"]
+# 프로덕 의존성
+COPY --from=builder /app/Backend/package*.json ./
+RUN npm ci --omit=dev
+
+# 실행 산출물 + 엔트리포인트
+COPY --from=builder /app/Backend/dist ./dist
+COPY Backend/docker/entrypoint.prod.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+# TypeORM CLI가 dist에서 마이그 돌릴 수 있게 node_modules 포함
+COPY --from=builder /app/Backend/node_modules ./node_modules
+
+CMD ["./entrypoint.sh"]

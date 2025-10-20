@@ -1,6 +1,7 @@
 ---
 alwaysApply: true
 ---
+
 ## 🧭 Project Overview
 
 - Stack: **React 19 + Vite + Tailwind v4**, **NestJS + TypeScript + TypeORM**, 공용 타입/스키마는 **`../shared`**.
@@ -92,15 +93,27 @@ types/ # 프론트 전용 타입 (공용은 @shared)
 - 페이징 표준: `?page=1&limit=20` → `{ items, totalCount, page, limit }`
 - 정렬/검색 파라미터 화이트리스트
 
-### 로깅/관측
+### 로깅/관측 (Cache Observability Mode)
 
-- 요청 단위 trace id로 로그 상관관계
-- 느린 쿼리 임계치 로깅(예: >300ms)
+- Redis 캐시·히스토리 운영 상태를 즉시 확인할 수 있는 엔드포인트 유지:
+  - `GET /health/cache` : Redis ping, `cache:heartbeat`, writer counters
+  - `GET /api/debug/cache/keys` : SCAN only (values 노출 금지)
+  - `GET /api/debug/cache/item/:itemKey` : current, counts(24h/7d), first/last ts
+- 스케줄러는 매 배치마다:
+  - `SET cache:heartbeat <epoch_ms> EX 86400`
+  - `INCRBY cache:metrics:writes <n>`
+  - `INCRBY cache:metrics:changes <k>`
+  - 로그 한 줄: `batch=<n> changes=<k> window=7d`
+- Redis 키 네임스페이스(추가만 허용, 기존 이름 변경 금지):
+  - `price:current:{itemKey}` (STRING JSON {price, ts})
+  - `price:hist:{itemKey}` (ZSET score=ts, member=price)
+  - `cache:heartbeat`, `cache:metrics:writes`, `cache:metrics:changes`
 
 ### 테스트
 
 - Unit: 서비스/리포지토리 mocking
 - E2E: TestApp + Supertest, 테스트 전용 DB/스키마
+- Cache Audit 테스트: 시드 데이터로 24h/7d 카운트/범위 검증
 
 ---
 
@@ -139,3 +152,4 @@ types/ # 프론트 전용 타입 (공용은 @shared)
 - [ ] TypeORM에서 N+1을 방지했는가?
 - [ ] 응답을 표준 형태로 매핑했는가?
 - [ ] 민감정보/비밀키를 노출하지 않았는가?
+- [ ] **Cache Observability 엔드포인트/메트릭을 추가/유지했는가?**
