@@ -4,10 +4,21 @@ WORKDIR /app/Backend
 COPY Backend/package*.json ./
 RUN npm ci
 
-# 2) dev
-FROM node:20
+# 2) build
+FROM node:20 AS build
 WORKDIR /app/Backend
 COPY --from=deps /app/Backend/node_modules ./node_modules
+COPY Backend/ ./
+COPY shared/ ../shared/
+RUN npm run build
 
-EXPOSE 4000
-# 코드/공유/tsconfig는 전부 docker-compose의 볼륨으로 제공
+# 3) prod
+FROM node:20 AS prod
+WORKDIR /app/Backend
+COPY --from=deps /app/Backend/node_modules ./node_modules
+COPY --from=build /app/Backend/dist ./dist
+COPY --from=build /app/shared ../shared
+
+ENV PORT=8080
+EXPOSE 8080
+CMD ["node", "dist/main.js"]
