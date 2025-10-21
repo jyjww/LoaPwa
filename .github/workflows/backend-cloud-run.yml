@@ -126,22 +126,23 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
           # Cloud Run Job 생성/업데이트
-          gcloud run jobs create migrate \
-            --image="$IMAGE:${{ github.sha }}" \
-            --region="${{ env.REGION }}" \
-            --add-cloudsql-instances "${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }}" \
-            --service-account "${{ secrets.GCP_SA_EMAIL }}"
-            --command="node" \
-            --args="./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
-            --set-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot" \
-            --set-secrets="DB_PASSWORD=DB_PASSWORD:latest" \
-            --cpu=1 \
-            --memory=512Mi \
-            --max-retries=0 \
-            --replace || true
-
-          # 마이그레이션 실행
-          gcloud run jobs execute migrate --region="${{ env.REGION }}" --wait
+          # Cloud Run Job 생성/업데이트 (idempotent)
+            gcloud run jobs create migrate \
+              --image="$IMAGE:${{ github.sha }}" \
+              --region="${{ env.REGION }}" \
+              --set-cloudsql-instances "${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }}" \
+              --service-account "${{ secrets.GCP_SA_EMAIL }}" \
+              --command="node" \
+              --args="./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
+              --set-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot" \
+              --set-secrets="DB_PASSWORD=DB_PASSWORD:latest" \
+              --cpu=1 \
+              --memory=512Mi \
+              --max-retries=0 \
+              --replace || true
+            
+            # 실행
+            gcloud run jobs execute migrate --region="${{ env.REGION }}" --wait
 
       # 8) 배포 (Secret Manager + 간단 env)
       - name: Deploy to Cloud Run
