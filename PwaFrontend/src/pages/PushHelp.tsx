@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FC, type ReactNode } from 'react';
 import { issueFcmTokenWithVapid, deleteFcmToken, getMessagingIfSupported } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { getOrCreateAnonId, getCurrentAnonId } from '@/services/anonService';
 
 type CheckRow = { label: string; value: string | boolean; warn?: boolean };
 
@@ -24,6 +25,8 @@ export default function PushHelp() {
   );
   const [swReady, setSwReady] = useState<boolean>(false);
   const [fcmSupported, setFcmSupported] = useState<boolean>(false);
+  const [anonId, setAnonId] = useState<string | null>(null);
+  const [isCreatingAnon, setIsCreatingAnon] = useState(false);
 
   // ── 환경 판별 ────────────────────────────────────────────────────────────────
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
@@ -48,6 +51,10 @@ export default function PushHelp() {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      // 익명 사용자 ID 확인
+      const currentAnonId = getCurrentAnonId();
+      if (mounted) setAnonId(currentAnonId);
+
       const hasSW = 'serviceWorker' in navigator;
       if (!hasSW) {
         if (mounted) setSwReady(false);
@@ -106,9 +113,28 @@ export default function PushHelp() {
     { label: 'Push API 지원', value: 'PushManager' in window },
     { label: 'FCM 사용 가능', value: fcmSupported },
     { label: '알림 권한(Notification.permission)', value: perm },
+    {
+      label: '임시 사용자 ID',
+      value: anonId ? `${anonId.substring(0, 8)}...` : '없음',
+      warn: !anonId,
+    },
   ];
 
   // ── 액션 ───────────────────────────────────────────────────────────────────
+  const createAnonUser = async () => {
+    setIsCreatingAnon(true);
+    try {
+      const newAnonId = await getOrCreateAnonId();
+      setAnonId(newAnonId);
+      alert(`임시 사용자 등록 완료!\nID: ${newAnonId.substring(0, 8)}...`);
+    } catch (error) {
+      console.error('익명 사용자 생성 실패:', error);
+      alert('임시 사용자 등록에 실패했습니다.');
+    } finally {
+      setIsCreatingAnon(false);
+    }
+  };
+
   const requestPermission = async () => {
     if (typeof Notification === 'undefined') {
       alert('이 브라우저는 Notification API를 지원하지 않아요.');
@@ -157,13 +183,21 @@ export default function PushHelp() {
             </div>
 
             <div className="flex flex-wrap gap-2 pt-3">
-              <Button onClick={requestPermission}>알림 권한 요청</Button>
-              <Button variant="secondary" onClick={subscribe}>
-                구독(FCM 토큰 발급)
-              </Button>
-              <Button variant="outline" onClick={unsubscribe}>
-                구독 해지
-              </Button>
+              {!anonId ? (
+                <Button onClick={createAnonUser} disabled={isCreatingAnon}>
+                  {isCreatingAnon ? '등록 중...' : '임시 사용자 등록'}
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={requestPermission}>알림 권한 요청</Button>
+                  <Button variant="secondary" onClick={subscribe}>
+                    구독(FCM 토큰 발급)
+                  </Button>
+                  <Button variant="outline" onClick={unsubscribe}>
+                    구독 해지
+                  </Button>
+                </>
+              )}
             </div>
 
             {token ? (
@@ -171,10 +205,14 @@ export default function PushHelp() {
                 <div className="font-semibold">FCM Token</div>
                 <div className="opacity-80">{token}</div>
               </div>
-            ) : perm === 'granted' && fcmSupported && swReady ? (
+            ) : anonId && perm === 'granted' && fcmSupported && swReady ? (
               <div className="mt-3 text-xs rounded border border-yellow-500/50 bg-yellow-500/10 text-yellow-800 dark:text-yellow-200 p-2">
                 FCM 토큰이 <b>null</b>로 표시됩니다. 네트워크/환경설정(예: VAPID/프로젝트
                 설정/서비스워커 경로) 문제일 수 있어요. <b>개발자에게 문의</b>해 주세요.
+              </div>
+            ) : !anonId ? (
+              <div className="mt-3 text-xs rounded border border-blue-500/50 bg-blue-500/10 text-blue-800 dark:text-blue-200 p-2">
+                알림 기능을 사용하려면 먼저 <b>임시 사용자 등록</b>을 해주세요.
               </div>
             ) : null}
           </Section>

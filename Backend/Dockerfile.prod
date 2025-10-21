@@ -26,3 +26,5 @@ COPY --from=builder /app/Backend/dist/migrations ./dist/migrations
 COPY --from=builder /app/Backend/node_modules ./node_modules
 
 CMD ["node", "dist/main.js"]
+# CMD ["./entrypoint.sh"]
+CMD ["node", "dist/main.js"]

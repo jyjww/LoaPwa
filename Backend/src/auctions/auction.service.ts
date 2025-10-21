@@ -26,9 +26,9 @@ export class AuctionService {
     const requestBody = {
       ItemName: dto.query || '',
       ItemGrade: dto.grade === '전체' ? null : dto.grade,
-      ItemTier: typeof dto.tier === 'string' ? null : dto.tier,
+      ItemTier: typeof dto.tier === 'string' ? null : dto.tier && dto.tier > 0 ? dto.tier : null,
       CharacterClass: dto.className === '전체' ? null : dto.className,
-      CategoryCode: typeof dto.category === 'string' ? 0 : dto.category,
+      CategoryCode: typeof dto.category === 'string' ? 10000 : dto.category || 10000,
       Sort: dto.sort || 'BIDSTART_PRICE',
       SortCondition: dto.sortCondition || 'ASC',
       PageNo: dto.pageNo || 1,

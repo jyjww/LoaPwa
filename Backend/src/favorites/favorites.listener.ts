@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Favorite } from '@/favorites/entities/favorite.entity';
 import { FcmService } from '@/fcm/fcm.service';
+import { AnonFcmService } from '@/anon/anon-fcm.service';
 
 type FavoriteAlertEvt = {
   favoriteId: string;
@@ -27,6 +28,7 @@ export class FavoritesListener {
   constructor(
     @InjectRepository(Favorite) private readonly favRepo: Repository<Favorite>,
     private readonly fcmService: FcmService,
+    private readonly anonFcmService: AnonFcmService,
   ) {}
 
   @OnEvent('favorite.alert', { async: true })
@@ -57,20 +59,45 @@ export class FavoritesListener {
         `price=${p.currentPrice} target=${p.targetPrice} prev=${p.previousPrice} src=${p.source}`,
     );
 
-    // 🔔 실제 FCM 푸시 발송 (확장된 시그니처 사용)
-    await this.fcmService.sendPush({
-      userId: p.userId,
-      title,
-      body,
-      url,
-      data: {
-        itemName: name ?? '',
-        itemId: p.itemId != null ? String(p.itemId) : '',
-        source: p.source,
-        currentPrice: String(p.currentPrice),
-        targetPrice: p.targetPrice != null ? String(p.targetPrice) : '',
-      },
+    // 🔔 실제 FCM 푸시 발송 (사용자 타입에 따라 분기)
+    const favorite = await this.favRepo.findOne({
+      where: { id: p.favoriteId },
+      relations: ['user', 'anonUser'],
     });
+
+    if (favorite?.user) {
+      // 일반 사용자에게 푸시 발송
+      await this.fcmService.sendPush({
+        userId: p.userId,
+        title,
+        body,
+        url,
+        data: {
+          itemName: name ?? '',
+          itemId: p.itemId != null ? String(p.itemId) : '',
+          source: p.source,
+          currentPrice: String(p.currentPrice),
+          targetPrice: p.targetPrice != null ? String(p.targetPrice) : '',
+        },
+      });
+    } else if (favorite?.anonUser) {
+      // 익명 사용자에게 푸시 발송
+      await this.anonFcmService.sendPush({
+        anonId: favorite.anonUser.id,
+        title,
+        body,
+        url,
+        data: {
+          itemName: name ?? '',
+          itemId: p.itemId != null ? String(p.itemId) : '',
+          source: p.source,
+          currentPrice: String(p.currentPrice),
+          targetPrice: p.targetPrice != null ? String(p.targetPrice) : '',
+        },
+      });
+    } else {
+      this.logger.warn(`No user or anonymous user found for favorite: ${p.favoriteId}`);
+    }
   }
 
   // --- helpers ---

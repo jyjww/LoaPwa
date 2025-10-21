@@ -18,7 +18,7 @@ const Navigation = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-3">
         <div className="flex items-center gap-2">
           <Gamepad2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-          <h1 className="text-lg sm:text-xl font-bold text-primary">로아 알리미</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-primary">로알림</h1>
         </div>
       </div>
 

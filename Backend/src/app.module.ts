@@ -12,12 +12,14 @@ import { AppService } from './app.service';
 import { AuctionModule } from './auctions/auction.module';
 import { MarketModule } from './markets/market.module';
 import { AuthModule } from './auth/auth.module';
+import { AnonModule } from './anon/anon.module';
 import { FavoritesModule } from './favorites/favorite.module';
 import { FcmModule } from './fcm/fcm.module';
 import { AppCacheModule } from './cache/cache.module';
 import { WatchModule } from './watch/watch.module';
 import { DebugModule } from './debug/debug.module';
 import { PriceModule } from './prices/price.module';
+import { PrincipalResolver } from './auth/principal.resolver';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -122,6 +124,7 @@ const isProd = process.env.NODE_ENV === 'production';
     AuctionModule,
     MarketModule,
     AuthModule,
+    AnonModule,
     FavoritesModule,
     FcmModule,
     AppCacheModule,
@@ -130,6 +133,6 @@ const isProd = process.env.NODE_ENV === 'production';
     PriceModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, PrincipalResolver],
 })
 export class AppModule {}
