@@ -2,6 +2,12 @@
 set -euo pipefail
 echo "[entry] NODE_ENV=${NODE_ENV:-}"
 
+# DATABASE_URL이 없으면 개별 환경변수로 구성
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  echo "[entry] Building DATABASE_URL from individual env vars..."
+  export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}"
+fi
+
 # ---- Cloud Run 다중 인스턴스 중복 방지 (advisory lock) ----
 try_lock() {
   node -e "const { Client } = require('pg');
@@ -27,7 +33,12 @@ unlock() {
 if [[ "${MIGRATE_ON_BOOT:-0}" == "1" ]]; then
   echo "[entry] run migrations..."
   if try_lock; then
-    node ./node_modules/typeorm/cli.js -d dist/data-source.js migration:run || true
+    echo "[entry] acquired lock, running migrations..."
+    if node ./node_modules/typeorm/cli.js -d dist/data-source.js migration:run; then
+      echo "[entry] migrations completed successfully"
+    else
+      echo "[entry] migration failed, but continuing..."
+    fi
     unlock || true
   else
     echo "[entry] another instance migrating; skip"
