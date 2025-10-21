@@ -4,8 +4,10 @@ import { DataSource } from 'typeorm';
 
 // 엔티티들 전부 import
 import { User } from './auth/entities/user.entity';
+import { AnonUser } from './auth/entities/anon-user.entity';
 import { Favorite } from './favorites/entities/favorite.entity';
 import { FcmToken } from './fcm/entities/fcm-token.entity';
+import { AnonFcmToken } from './fcm/entities/anon-fcm-token.entity';
 import { AutoWatch } from './watch/entities/auto-watch.entity';
 import { PriceHistory } from './prices/entities/price-history.entity';
 
@@ -25,7 +27,7 @@ const base = hasUrl
 export default new DataSource({
   type: 'postgres',
   ...base,
-  entities: [User, Favorite, FcmToken, AutoWatch, PriceHistory],
+  entities: [User, AnonUser, Favorite, FcmToken, AnonFcmToken, AutoWatch, PriceHistory],
   migrations: isProd ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
   schema: 'public',
 });
