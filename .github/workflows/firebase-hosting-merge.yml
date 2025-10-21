@@ -92,6 +92,7 @@ jobs:
         working-directory: PwaFrontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_LOGIN_UI: off
 
           # Vite에서 참조할 Firebase 환경변수들
           VITE_FB_API_KEY: ${{ secrets.VITE_FB_API_KEY }}
@@ -117,3 +118,4 @@ jobs:
           entryPoint: ./PwaFrontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_LOGIN_UI: off
