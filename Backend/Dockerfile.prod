@@ -20,6 +20,7 @@ RUN npm ci --omit=dev
 
 # 실행 산출물 + 엔트리포인트
 COPY --from=builder /app/Backend/dist ./dist
+COPY --from=builder /app/Backend/dist/migrations ./dist/migrations
 COPY Backend/docker/entrypoint.prod.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
@@ -27,4 +28,4 @@ RUN chmod +x ./entrypoint.sh
 COPY --from=builder /app/Backend/node_modules ./node_modules
 
 # CMD ["./entrypoint.sh"]
-CMD ["node", "dist/main.js"]
+CMD ["./entrypoint.sh"]
