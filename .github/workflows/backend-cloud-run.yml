@@ -138,7 +138,7 @@ jobs:
               --service-account "${{ secrets.GCP_SA_EMAIL }}" \
               --command="node" \
               --args="-r,module-alias/register,./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
-              --set-env-vars="NODE_ENV=production,DB_HOST=127.0.0.1,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,PGSSLMODE=disable" \
+              --set-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,PGSSLMODE=disable" \
               --set-secrets="DB_PASSWORD=DB_PASSWORD:latest" \
               --cpu=1 \
               --memory=512Mi \
@@ -152,7 +152,7 @@ jobs:
               --service-account "${{ secrets.GCP_SA_EMAIL }}" \
               --command="node" \
               --args="-r,module-alias/register,./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
-              --set-env-vars="NODE_ENV=production,DB_HOST=127.0.0.1,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,PGSSLMODE=disable" \
+              --set-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${PROJECT_ID}:${DB_REGION}:${SQL_INSTANCE},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,PGSSLMODE=disable"
               --set-secrets="DB_PASSWORD=DB_PASSWORD:latest" \
               --cpu=1 \
               --memory=512Mi \
