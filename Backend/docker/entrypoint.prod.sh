@@ -9,7 +9,12 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   echo "[entry] DB_HOST=${DB_HOST}"
   echo "[entry] DB_PORT=${DB_PORT:-5432}"
   echo "[entry] DB_NAME=${DB_NAME}"
-  export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}"
+  # Cloud SQL 소켓 사용 시 포트 번호 제외
+  if [[ "${DB_HOST}" == /cloudsql/* ]]; then
+    export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
+  else
+    export DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}"
+  fi
   echo "[entry] DATABASE_URL=${DATABASE_URL}"
 fi
 

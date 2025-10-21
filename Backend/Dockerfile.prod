@@ -8,7 +8,6 @@ RUN npm run build  # → dist/** (src/migrations 포함되어야 함)
 
 # 2) Run stage
 FROM node:20-alpine AS runner
-RUN apk add --no-cache bash
 WORKDIR /app/Backend
 ENV NODE_ENV=production
 ENV TZ=Asia/Seoul
@@ -19,14 +18,11 @@ ENV PORT=8080
 COPY --from=builder /app/Backend/package*.json ./
 RUN npm ci --omit=dev
 
-# 실행 산출물 + 엔트리포인트
+# 실행 산출물
 COPY --from=builder /app/Backend/dist ./dist
 COPY --from=builder /app/Backend/dist/migrations ./dist/migrations
-COPY --from=builder /app/Backend/docker/entrypoint.prod.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
 
 # TypeORM CLI가 dist에서 마이그 돌릴 수 있게 node_modules 포함
 COPY --from=builder /app/Backend/node_modules ./node_modules
 
-# CMD ["./entrypoint.sh"]
-CMD ["./entrypoint.sh"]
+CMD ["node", "dist/main.js"]
