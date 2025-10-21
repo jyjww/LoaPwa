@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
-import { AnonUser } from '@/auth/entities/anon-user.entity';
+import { AnonUser } from '@/anon/anon-user.entity';
 
 @Entity('anon_fcm_tokens')
 export class AnonFcmToken {

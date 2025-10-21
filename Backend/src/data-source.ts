@@ -6,10 +6,8 @@ import { DataSource } from 'typeorm';
 import { User } from './auth/entities/user.entity';
 import { AnonUser } from './anon/anon-user.entity';
 import { AnonFcmToken } from './anon/entities/anon-fcm-token.entity';
-import { AnonUser } from './auth/entities/anon-user.entity';
 import { Favorite } from './favorites/entities/favorite.entity';
 import { FcmToken } from './fcm/entities/fcm-token.entity';
-import { AnonFcmToken } from './fcm/entities/anon-fcm-token.entity';
 import { AutoWatch } from './watch/entities/auto-watch.entity';
 import { PriceHistory } from './prices/entities/price-history.entity';
 
@@ -30,7 +28,6 @@ export default new DataSource({
   type: 'postgres',
   ...base,
   entities: [User, AnonUser, AnonFcmToken, Favorite, FcmToken, AutoWatch, PriceHistory],
-  entities: [User, AnonUser, Favorite, FcmToken, AnonFcmToken, AutoWatch, PriceHistory],
   migrations: isProd ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
   schema: 'public',
 });
