@@ -126,45 +126,19 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true' }}
         run: |
           # Cloud Run Job 생성/업데이트
-          gcloud run jobs replace - <<EOF
-          apiVersion: run.googleapis.com/v1
-          kind: Job
-          metadata:
-            name: migrate
-            namespace: "${{ env.PROJECT_ID }}"
-            labels:
-              cloud.googleapis.com/location: "${{ env.REGION }}"
-          spec:
-            template:
-              spec:
-                template:
-                  spec:
-                    containers:
-                    - image: "$IMAGE:${{ github.sha }}"
-                      command: ["node"]
-                      args: ["./node_modules/typeorm/cli.js", "-d", "dist/data-source.js", "migration:run"]
-                      env:
-                      - name: NODE_ENV
-                        value: "production"
-                      - name: DB_HOST
-                        value: "/cloudsql/${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }}"
-                      - name: DB_PORT
-                        value: "5432"
-                      - name: DB_NAME
-                        value: "loadb"
-                      - name: DB_USER
-                        value: "yzroot"
-                      - name: DB_PASSWORD
-                        valueFrom:
-                          secretKeyRef:
-                            name: DB_PASSWORD
-                            key: latest
-                      resources:
-                        limits:
-                          cpu: "1"
-                          memory: "512Mi"
-                    restartPolicy: Never
-          EOF
+          gcloud run jobs create migrate \
+            --image="$IMAGE:${{ github.sha }}" \
+            --region="${{ env.REGION }}" \
+            --add-cloudsql-instances "${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }}" \
+            --service-account "${{ secrets.GCP_SA_EMAIL }}"
+            --command="node" \
+            --args="./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
+            --set-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }},DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot" \
+            --set-secrets="DB_PASSWORD=DB_PASSWORD:latest" \
+            --cpu=1 \
+            --memory=512Mi \
+            --max-retries=0 \
+            --replace || true
 
           # 마이그레이션 실행
           gcloud run jobs execute migrate --region="${{ env.REGION }}" --wait
