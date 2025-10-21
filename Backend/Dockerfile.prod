@@ -4,7 +4,7 @@ WORKDIR /app/Backend
 COPY Backend/package*.json ./
 RUN npm ci
 COPY Backend ./
-RUN npm run build  # → dist/** (src/migrations 포함되어야 함)
+RUN npm run build && npm run build:migrations   # ★ data-source.ts도 dist로 컴파일
 
 # 2) Run stage
 FROM node:20-alpine AS runner

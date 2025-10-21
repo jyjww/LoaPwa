@@ -26,6 +26,6 @@ export default new DataSource({
   type: 'postgres',
   ...base,
   entities: [User, Favorite, FcmToken, AutoWatch, PriceHistory],
-  migrations: isProd ? ['dist/migrations/migrations/*.js'] : ['src/migrations/*.ts'],
+  migrations: isProd ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
   schema: 'public',
 });
