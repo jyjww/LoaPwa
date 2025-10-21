@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { existsSync, readdirSync } from 'fs';
 import { DataSource } from 'typeorm';
 import cookieParser from 'cookie-parser';
+import { PrincipalResolver } from './auth/principal.resolver';
 import 'reflect-metadata';
 
 async function bootstrap() {
@@ -48,6 +49,10 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
+  // PrincipalResolver 미들웨어 등록
+  const principalResolver = app.get(PrincipalResolver);
+  app.use(principalResolver.use.bind(principalResolver));
+
   app.enableCors({
     origin: (process.env.CORS_ORIGIN ?? '')
       .split(',')
@@ -55,7 +60,7 @@ async function bootstrap() {
       .filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Anon-Id'],
   });
 
   const port = Number(process.env.PORT) || 8080;

@@ -63,7 +63,10 @@ const Favorites = () => {
       .then(setFavorites)
       .catch((err) => {
         console.error('즐겨찾기 불러오기 실패:', err);
-        navigate('/login');
+        // 로그인 UI가 활성화된 경우에만 로그인 페이지로 리다이렉트
+        if (import.meta.env.VITE_LOGIN_UI !== 'off') {
+          navigate('/login');
+        }
       });
   }, [navigate]);
 
@@ -74,7 +77,10 @@ const Favorites = () => {
       setFavorites((prev) => prev.filter((item) => item.id !== itemId));
     } catch (err) {
       console.error('즐겨찾기 삭제 실패:', err);
-      navigate('/login');
+      // 로그인 UI가 활성화된 경우에만 로그인 페이지로 리다이렉트
+      if (import.meta.env.VITE_LOGIN_UI !== 'off') {
+        navigate('/login');
+      }
     }
   };
 
@@ -92,7 +98,10 @@ const Favorites = () => {
         setFavorites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       } catch (err) {
         console.error('타겟 가격 수정 실패:', err);
-        navigate('/login');
+        // 로그인 UI가 활성화된 경우에만 로그인 페이지로 리다이렉트
+        if (import.meta.env.VITE_LOGIN_UI !== 'off') {
+          navigate('/login');
+        }
       } finally {
         setEditingItem(null);
         setNewTargetPrice('');

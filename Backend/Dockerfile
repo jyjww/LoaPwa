@@ -9,7 +9,6 @@ FROM node:20 AS build
 WORKDIR /app/Backend
 COPY --from=deps /app/Backend/node_modules ./node_modules
 COPY Backend/ ./
-COPY shared/ ../shared/
 RUN npm run build
 
 # 3) prod
@@ -17,7 +16,6 @@ FROM node:20 AS prod
 WORKDIR /app/Backend
 COPY --from=deps /app/Backend/node_modules ./node_modules
 COPY --from=build /app/Backend/dist ./dist
-COPY --from=build /app/shared ../shared
 
 ENV PORT=8080
 EXPOSE 8080

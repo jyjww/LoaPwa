@@ -1,6 +1,6 @@
 // src/components/Header.tsx
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, User, Moon, Sun, Settings } from 'lucide-react';
+import { Bell, User, Moon, Sun, Settings, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoLight from '@/assets/icon.svg';
 import logoDark from '@/assets/icon_dark.svg';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { usePushInbox } from '@/hooks/usePushInbox';
 import ToggleIOS from '@/components/ui/toggleIOS';
 import { usePushToggle } from '@/hooks/usePushToggle';
+import { getOrCreateAnonId, getCurrentAnonId } from '@/services/anonService';
 
 type ThemePref = 'light' | 'dark' | 'system';
 
@@ -16,6 +17,9 @@ const Header = () => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [open, setOpen] = useState(false);
+  const [anonId, setAnonId] = useState<string | null>(null);
+  const [isCreatingAnon, setIsCreatingAnon] = useState(false);
+  const [hasAnonId, setHasAnonId] = useState(false);
 
   // 알림 인박스(뱃지/목록)
   const { unread, items, resetUnread } = usePushInbox();
@@ -79,11 +83,37 @@ const Header = () => {
     setTheme(next);
   };
 
-  // 로그인 여부
+  // 로그인 여부 및 익명 사용자 ID 확인
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     setIsLoggedIn(!!token);
+
+    // 익명 사용자 ID 확인
+    const currentAnonId = getCurrentAnonId();
+    console.log('🍪 Header에서 쿠키 확인:', document.cookie);
+    console.log('🔍 Header에서 anonId:', currentAnonId);
+    setAnonId(currentAnonId);
+    setHasAnonId(!!currentAnonId);
+    console.log('✅ hasAnonId 설정:', !!currentAnonId);
   }, []);
+
+  // 익명 사용자 생성 함수
+  const handleCreateAnonUser = async () => {
+    console.log('🔍 익명 사용자 생성 시작');
+    setIsCreatingAnon(true);
+    try {
+      const newAnonId = await getOrCreateAnonId();
+      console.log('✅ 익명 사용자 생성 성공:', newAnonId);
+      setAnonId(newAnonId);
+      setHasAnonId(true);
+      alert(`임시 사용자 등록 완료!\nID: ${newAnonId.substring(0, 8)}...`);
+    } catch (error) {
+      console.error('❌ 익명 사용자 생성 실패:', error);
+      alert('임시 사용자 등록에 실패했습니다.');
+    } finally {
+      setIsCreatingAnon(false);
+    }
+  };
 
   // 벨 클릭 → 모달 열고 미확인 수 리셋
   const handleBellClick = async () => {
@@ -93,11 +123,19 @@ const Header = () => {
 
   // 토글 변경
   const onToggleChange = async (next: boolean) => {
+    console.log('🔄 onToggleChange 호출됨:', { next, hasAnonId, loading });
     try {
-      if (!isLoggedIn) return alert('로그인이 필요합니다.');
+      if (!hasAnonId) {
+        console.log('❌ hasAnonId가 없음');
+        alert('임시 사용자 등록이 필요합니다.');
+        return;
+      }
+      console.log('✅ hasAnonId 있음, 토글 실행:', next ? 'enable' : 'disable');
       if (next) await enable();
       else await disable();
+      console.log('✅ 토글 완료');
     } catch (e) {
+      console.error('❌ 토글 중 오류:', e);
       if (permission === 'denied') {
         alert(
           '알림 권한이 차단되어 있어요.\n브라우저/OS 설정에서 이 사이트의 알림을 허용해 주세요.\n(iOS: 설정 > 알림 > 앱 이름)',
@@ -142,7 +180,7 @@ const Header = () => {
         <Link to="/" className="font-bold text-2xl text-primary">
           <img
             src={effectiveTheme === 'dark' ? logoDark : logoLight}
-            alt="로아 알리미 로고"
+            alt="로알림 로고"
             width={40}
             height={40}
           />
@@ -192,10 +230,31 @@ const Header = () => {
             )}
           </Button>
 
-          {/* 👤 로그인 */}
-          <Button variant="ghost" size="icon" className="rounded-full" onClick={handleLoginClick}>
-            <User className="!h-6 !w-6" />
-          </Button>
+          {/* 👤 로그인 - 환경변수로 숨김 처리 */}
+          {import.meta.env.VITE_LOGIN_UI !== 'off' && (
+            <Button variant="ghost" size="icon" className="rounded-full" onClick={handleLoginClick}>
+              <User className="!h-6 !w-6" />
+            </Button>
+          )}
+
+          {/* 🆔 임시 유저 등록 버튼 - 로그인 UI가 비활성화된 경우에만 표시 */}
+          {import.meta.env.VITE_LOGIN_UI === 'off' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={handleCreateAnonUser}
+              disabled={isCreatingAnon || !!anonId}
+              title={
+                anonId ? `임시 사용자 등록됨 (${anonId.substring(0, 8)}...)` : '임시 사용자 등록'
+              }
+            >
+              <UserPlus className="!h-6 !w-6" />
+              {anonId && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full"></span>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -220,9 +279,23 @@ const Header = () => {
             <p className="text-xs text-muted-foreground">
               권한: <b>{permLabelMap[permission]}</b>
               {permission === 'denied' && ' — 브라우저/OS 설정에서 허용해야 합니다.'}
-              {!isLoggedIn && ' — 로그인 후 이용 가능합니다.'}
+              {!hasAnonId && ' — 임시 사용자 등록 후 이용 가능합니다.'}
             </p>
             {error && <p className="text-xs text-red-500">{error}</p>}
+
+            {/* 익명 사용자가 없을 때 등록 버튼 */}
+            {!hasAnonId && (
+              <div className="pt-2">
+                <Button
+                  onClick={handleCreateAnonUser}
+                  disabled={isCreatingAnon}
+                  size="sm"
+                  className="w-full"
+                >
+                  {isCreatingAnon ? '등록 중...' : '임시 사용자 등록'}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* 인박스 리스트 */}

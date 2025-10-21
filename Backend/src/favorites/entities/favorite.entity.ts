@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '@/auth/entities/user.entity';
+import { AnonUser } from '@/anon/anon-user.entity';
 
 @Entity()
 @Index('idx_favorite_source_item', ['source', 'itemId']) // 조회 가속
@@ -17,8 +18,11 @@ export class Favorite {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.favorites, { onDelete: 'CASCADE' })
-  user: User;
+  @ManyToOne(() => User, (user) => user.favorites, { onDelete: 'CASCADE', nullable: true })
+  user?: User;
+
+  @ManyToOne(() => AnonUser, { onDelete: 'CASCADE', nullable: true })
+  anonUser?: AnonUser;
 
   // 거래소 식별자
   @Column({

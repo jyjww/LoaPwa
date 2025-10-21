@@ -123,7 +123,7 @@ const Dashboard = () => {
     ) : null;
 
   return (
-    <div className="min-h-screen p-2 sm:p-4 bg-background">
+    <div className="p-2 sm:p-4 bg-background">
       <div className="max-w-6xl mx-auto">
         <Navigation />
 
