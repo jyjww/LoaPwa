@@ -129,7 +129,6 @@ jobs:
           REGION="${{ env.REGION }}"
           INSTANCE="${{ env.PROJECT_ID }}:${{ env.DB_REGION }}:${{ env.SQL_INSTANCE }}"
 
-          # 존재 여부 점검 → 있으면 update, 없으면 create
           if gcloud run jobs describe "$JOB_NAME" --region="$REGION" >/dev/null 2>&1; then
             echo "Updating Cloud Run Job: $JOB_NAME"
             gcloud run jobs update "$JOB_NAME" \
@@ -138,8 +137,8 @@ jobs:
               --set-cloudsql-instances "$INSTANCE" \
               --service-account "${{ secrets.GCP_SA_EMAIL }}" \
               --command="node" \
-              --args="./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
-              --set-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/$INSTANCE,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot" \
+              --args="-r,module-alias/register,./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
+              --set-env-vars="NODE_ENV=production,DB_HOST=127.0.0.1,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,PGSSLMODE=disable" \
               --set-secrets="DB_PASSWORD=DB_PASSWORD:latest" \
               --cpu=1 \
               --memory=512Mi \
@@ -152,15 +151,14 @@ jobs:
               --set-cloudsql-instances "$INSTANCE" \
               --service-account "${{ secrets.GCP_SA_EMAIL }}" \
               --command="node" \
-              --args="./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
-              --set-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/$INSTANCE,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot" \
+              --args="-r,module-alias/register,./node_modules/typeorm/cli.js,-d,dist/data-source.js,migration:run" \
+              --set-env-vars="NODE_ENV=production,DB_HOST=127.0.0.1,DB_PORT=5432,DB_NAME=loadb,DB_USER=yzroot,PGSSLMODE=disable" \
               --set-secrets="DB_PASSWORD=DB_PASSWORD:latest" \
               --cpu=1 \
               --memory=512Mi \
               --max-retries=0
           fi
 
-          # 실행
           gcloud run jobs execute "$JOB_NAME" --region="$REGION" --wait
 
       # 8) 배포 (Secret Manager + 간단 env)

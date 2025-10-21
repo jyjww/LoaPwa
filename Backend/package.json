@@ -44,6 +44,7 @@
     "firebase-admin": "^13.5.0",
     "ioredis": "^5.8.0",
     "joi": "^18.0.1",
+    "module-alias": "^2.2.3",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -131,5 +132,9 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "_moduleAliases": {
+    "@": "dist",
+    "@shared": "dist/shared"
   }
 }
