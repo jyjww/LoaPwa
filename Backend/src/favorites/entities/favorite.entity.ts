@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  JoinColumn,
   Index,
   CreateDateColumn,
   UpdateDateColumn,
@@ -22,6 +23,7 @@ export class Favorite {
   user?: User;
 
   @ManyToOne(() => AnonUser, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'anon_id' })
   anonUser?: AnonUser;
 
   // 거래소 식별자
