@@ -6,6 +6,17 @@ import logoLight from '@/assets/icon.svg';
 import logoDark from '@/assets/icon_dark.svg';
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { usePushInbox } from '@/stores/inboxStore';
 import ToggleIOS from '@/components/ui/toggleIOS';
 import { usePushToggle } from '@/hooks/usePushToggle';
@@ -22,7 +33,7 @@ const Header = () => {
   const [hasAnonId, setHasAnonId] = useState(false);
 
   // 알림 인박스(뱃지/목록) - inboxStore 사용
-  const { items, unread, resetUnread } = usePushInbox();
+  const { items, unread, resetUnread, clearAll } = usePushInbox();
 
   const goHelp = () => {
     setOpen(false);
@@ -242,7 +253,7 @@ const Header = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full"
+              className="relative rounded-full"
               onClick={handleCreateAnonUser}
               disabled={isCreatingAnon || !!anonId}
               title={
@@ -251,7 +262,9 @@ const Header = () => {
             >
               <UserPlus className="!h-6 !w-6" />
               {anonId && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full"></span>
+                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-green-500 text-[10px] leading-4 text-white text-center">
+                  ✓
+                </span>
               )}
             </Button>
           )}
@@ -303,19 +316,54 @@ const Header = () => {
             {items.length === 0 ? (
               <div className="text-sm text-muted-foreground">새 알림이 없습니다.</div>
             ) : (
-              items.map((m, i) => (
-                <button
-                  key={i}
-                  onClick={() => (window.location.href = m.url || '/')}
-                  className="w-full text-left p-3 rounded-lg border mobile-card hover:bg-muted/50"
-                >
-                  <div className="text-sm font-medium">{m.title}</div>
-                  <div className="text-xs text-muted-foreground">{m.body}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {new Date(m.ts).toLocaleString()}
-                  </div>
-                </button>
-              ))
+              <>
+                {/* 모두 삭제 버튼 */}
+                <div className="flex justify-end pb-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        X
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>모든 알림 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          모든 알림을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={clearAll}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          삭제
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+
+                {/* 알림 목록 */}
+                {items.map((m, i) => (
+                  <button
+                    key={i}
+                    onClick={() => (window.location.href = m.url || '/')}
+                    className="w-full text-left p-3 rounded-lg border mobile-card hover:bg-muted/50"
+                  >
+                    <div className="text-sm font-medium">{m.title}</div>
+                    <div className="text-xs text-muted-foreground">{m.body}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {new Date(m.ts).toLocaleString()}
+                    </div>
+                  </button>
+                ))}
+              </>
             )}
           </div>
         </DialogContent>

@@ -151,7 +151,7 @@ const AuctionHouse = () => {
         tier: filters.tier,
         className: filters.className,
         category: filters.category,
-        subCategory: filters.subCategory,
+        subCategory: filters.subCategory === '전체' ? undefined : filters.subCategory,
         etcOptions: filters.etcOptions,
         onlyBuyNow,
       };

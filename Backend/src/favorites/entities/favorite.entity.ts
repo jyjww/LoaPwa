@@ -114,6 +114,8 @@ export class Favorite {
     yDayAvgPrice?: number;
     recentPrice?: number;
     tradeRemainCount?: number;
+    categoryCode?: number;
+    subCategoryCode?: number;
   };
 
   @Column('jsonb', { nullable: true })

@@ -85,7 +85,10 @@ export class ItemPriceService {
         tier: options.searchRequest.tier,
         className: options.searchRequest.className,
         category: options.searchRequest.category,
-        subCategory: options.searchRequest.subCategory,
+        // Market 전용: subCategory가 "전체"이면 전달하지 않음
+        ...(options.source === 'market' && options.searchRequest.subCategory === '전체'
+          ? {}
+          : { subCategory: options.searchRequest.subCategory }),
         etcOptions: options.searchRequest.etcOptions,
         onlyBuyNow: options.searchRequest.onlyBuyNow,
         maxPages: options.maxPages || 10,

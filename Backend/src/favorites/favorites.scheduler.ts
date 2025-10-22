@@ -95,7 +95,7 @@ export class FavoritesScheduler {
     private readonly priceService: PriceService,
   ) {}
 
-  @Cron('*/5 * * * *')
+  @Cron('*/1 * * * *')
   async handleCron(): Promise<void> {
     const runId = Date.now().toString(36);
     this.logger.log(`🔔 [${runId}] FavoritesScheduler 실행`);
@@ -165,10 +165,19 @@ export class FavoritesScheduler {
                 return;
               }
 
+              // 즐겨찾기에서 카테고리 정보 추출
+              const sampleFav = favs[0];
+              const categoryCode = sampleFav?.marketInfo?.categoryCode || 0;
+              const subCategoryCode = sampleFav?.marketInfo?.subCategoryCode || 0;
+
               const t0 = Date.now();
-              const res = await this.marketService.search({ query: name });
+              const res = await this.marketService.search({
+                query: name,
+                category: categoryCode > 0 ? categoryCode : undefined,
+                subCategory: subCategoryCode > 0 ? subCategoryCode : undefined,
+              });
               this.logger.debug(
-                `🛰️  [${runId}] market.search("${name}") -> items=${res.items?.length ?? 0} (${Date.now() - t0}ms)`,
+                `🛰️  [${runId}] market.search("${name}", cat=${categoryCode}, sub=${subCategoryCode}) -> items=${res.items?.length ?? 0} (${Date.now() - t0}ms)`,
               );
 
               const item = res.items?.find((i: any) => i.id === itemId);

@@ -441,18 +441,12 @@ export class FavoritesService {
         crossingOnly: false,
       });
 
-      // 3) DB patch를 한 번에 구성 (알림이면 lastNotifiedAt 포함)
-      const patch: Partial<Favorite> = {
-        currentPrice: nextCurrent,
-        previousPrice: nextPrevious,
-        marketInfo: fav.source === 'market' ? snap.info : fav.marketInfo,
-        auctionInfo: fav.source === 'auction' ? snap.info : fav.auctionInfo,
-        lastCheckedAt: snap.lastCheckedAt,
-        ...(shouldNotify ? { lastNotifiedAt: new Date() } : {}),
-      };
-
-      // 4) 알림 이벤트 발행 (FCM 리스너에서 처리)
+      // 3) 알림이 필요한 경우 먼저 lastNotifiedAt 업데이트 (중복 방지)
       if (shouldNotify) {
+        const notifyTime = new Date();
+        await this.favoriteRepo.update(fav.id, { lastNotifiedAt: notifyTime });
+
+        // 4) 알림 이벤트 발행 (FCM 리스너에서 처리)
         this.eventEmitter.emit('favorite.alert', {
           favoriteId: fav.id,
           userId: fav.user?.id || 'anon',
@@ -464,7 +458,15 @@ export class FavoritesService {
         });
       }
 
-      // 5) 최종 1회 업데이트
+      // 5) 나머지 필드 업데이트
+      const patch: Partial<Favorite> = {
+        currentPrice: nextCurrent,
+        previousPrice: nextPrevious,
+        marketInfo: fav.source === 'market' ? snap.info : fav.marketInfo,
+        auctionInfo: fav.source === 'auction' ? snap.info : fav.auctionInfo,
+        lastCheckedAt: snap.lastCheckedAt,
+      };
+
       await this.favoriteRepo.update(fav.id, patch);
     }
   }

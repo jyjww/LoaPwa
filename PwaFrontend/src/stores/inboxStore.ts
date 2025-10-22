@@ -1,5 +1,6 @@
 // src/stores/inboxStore.ts
 import { useSyncExternalStore } from 'react';
+import { idbClear } from '@/lib/inboxIdb';
 
 export type InboxMessage = {
   title: string;
@@ -56,9 +57,23 @@ export const inboxStore = {
     emit();
   },
   append(msg: InboxMessage) {
-    // 중복 방지(타임스탬프 동일 메시지 가정)
-    const exists = state.items.some((m) => m.ts === msg.ts && m.title === msg.title);
-    if (exists) return;
+    // 중복 방지: messageId 또는 타임스탬프+제목으로 체크
+    const exists = state.items.some((m) => {
+      // messageId로 중복 체크 (더 정확)
+      if ((m as any).raw?.messageId && (msg as any).raw?.messageId) {
+        return (m as any).raw.messageId === (msg as any).raw.messageId;
+      }
+      if ((m as any).raw?.fcmMessageId && (msg as any).raw?.fcmMessageId) {
+        return (m as any).raw.fcmMessageId === (msg as any).raw.fcmMessageId;
+      }
+      // 폴백: 타임스탬프+제목으로 체크
+      return m.ts === msg.ts && m.title === msg.title;
+    });
+
+    if (exists) {
+      console.log('🚫 Duplicate message prevented:', msg.title);
+      return;
+    }
 
     state = {
       items: [msg, ...state.items].slice(0, 200), // 최대 200개 보관 (원하면 조절)
@@ -69,6 +84,36 @@ export const inboxStore = {
   resetUnread() {
     state = { ...state, unread: 0 };
     emit();
+
+    // 읽음 처리 후 오래된 메시지 자동 삭제 (7일 이상)
+    this.cleanupOldMessages();
+  },
+
+  cleanupOldMessages() {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const oldCount = state.items.filter((item) => item.ts < sevenDaysAgo).length;
+
+    if (oldCount > 0) {
+      state = {
+        ...state,
+        items: state.items.filter((item) => item.ts >= sevenDaysAgo),
+      };
+      emit();
+      console.log(`🧹 Cleaned up ${oldCount} old messages (older than 7 days)`);
+    }
+  },
+
+  clearAll() {
+    const clearedCount = state.items.length;
+    state = { items: [], unread: 0 };
+    emit();
+
+    // IndexedDB에서도 삭제
+    idbClear().catch((err) => {
+      console.warn('Failed to clear IndexedDB:', err);
+    });
+
+    console.log(`🗑️ Cleared all ${clearedCount} messages`);
   },
   subscribe(fn: () => void) {
     listeners.add(fn);
@@ -91,5 +136,6 @@ export function usePushInbox() {
     // 필요 시 확장용
     setAll: inboxStore.setAll,
     append: inboxStore.append,
+    clearAll: inboxStore.clearAll,
   };
 }

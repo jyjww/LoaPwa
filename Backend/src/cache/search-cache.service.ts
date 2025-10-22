@@ -63,7 +63,9 @@ export class SearchCacheService {
       tier: request.tier || '전체',
       className: request.className || '전체',
       category: request.category || '전체',
-      subCategory: request.subCategory || '전체',
+      // subCategory가 '전체'이거나 undefined면 해시에서 제외
+      ...(request.subCategory &&
+        request.subCategory !== '전체' && { subCategory: request.subCategory }),
       etcOptions: request.etcOptions || [],
       onlyBuyNow: request.onlyBuyNow || false,
       ...(includeTimestamp && { timestamp: Date.now() }), // 수집 시에만 타임스탬프 포함
@@ -201,16 +203,25 @@ export class SearchCacheService {
     cachedItems: number;
   }> {
     const { searchRequest, maxPages = 10, delayMs = 1500 } = options;
-    const searchHash = this.generateSearchHash('market', searchRequest, true); // 수집 시 타임스탬프 포함
 
-    // 이미 캐시되어 있는지 확인
-    if (await this.priceCache.hasSearchCache('market', searchHash)) {
-      const count = await this.priceCache.getSearchCacheCount('market', searchHash);
-      this.log.debug(`✅ Using cached market search: ${searchHash} (${count} items)`);
-      return { searchHash, totalItems: count, cachedItems: count };
-    }
+    // Market 전용: subCategory가 "전체"이면 undefined로 처리하여 사용자 검색 조건과 동일하게 유지
+    const cleanedSearchRequest = {
+      ...searchRequest,
+      subCategory: searchRequest.subCategory === '전체' ? undefined : searchRequest.subCategory,
+    };
 
-    this.log.log(`🔍 Collecting market search: ${searchRequest.query || 'all'} (${searchHash})`);
+    const searchHash = this.generateSearchHash('market', cleanedSearchRequest, true); // 수집 시 타임스탬프 포함
+
+    // 이미 캐시되어 있는지 확인 (임시로 비활성화)
+    // if (await this.priceCache.hasSearchCache('market', searchHash)) {
+    //   const count = await this.priceCache.getSearchCacheCount('market', searchHash);
+    //   this.log.debug(`✅ Using cached market search: ${searchHash} (${count} items)`);
+    //   return { searchHash, totalItems: count, cachedItems: count };
+    // }
+
+    this.log.log(
+      `🔍 Collecting market search: ${cleanedSearchRequest.query || 'all'} (${searchHash})`,
+    );
 
     const allItems: PriceItem[] = [];
     let totalCount = 0;
@@ -218,15 +229,19 @@ export class SearchCacheService {
 
     try {
       while (page <= maxPages) {
-        // 거래소 검색
+        // 거래소 검색 - 사용자의 원본 검색 조건을 정확히 반영
         const searchResult = await this.marketService.search({
-          query: searchRequest.query || '',
-          grade: searchRequest.grade || '전체',
-          tier: typeof searchRequest.tier === 'number' ? searchRequest.tier : undefined,
-          className: searchRequest.className || '전체',
-          category: typeof searchRequest.category === 'number' ? searchRequest.category : 0,
+          query: cleanedSearchRequest.query || '',
+          grade: cleanedSearchRequest.grade || '전체',
+          tier:
+            typeof cleanedSearchRequest.tier === 'number' ? cleanedSearchRequest.tier : undefined,
+          className: cleanedSearchRequest.className || '전체',
+          category:
+            typeof cleanedSearchRequest.category === 'number' ? cleanedSearchRequest.category : 0,
           subCategory:
-            typeof searchRequest.subCategory === 'number' ? searchRequest.subCategory : 0,
+            typeof cleanedSearchRequest.subCategory === 'number'
+              ? cleanedSearchRequest.subCategory
+              : undefined,
           pageNo: page,
         });
 

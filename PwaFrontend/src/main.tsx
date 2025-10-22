@@ -77,6 +77,8 @@ if ('serviceWorker' in navigator) {
    * 3) SW → 메인 스레드 메시지 브리지
    *    - SW에서 postMessage({ type: 'PUSH_RECEIVED', payload })가 오면
    *      인박스 스토어에 적재하여 모달(알림함)에서 즉시 보이게 한다.
+   *    - SW에서 postMessage({ type: 'PUSH_CLICK', url })가 오면
+   *      해당 URL로 페이지 이동한다.
    *    - ts가 없으면 현재 시각으로 보정.
    */
   if ('serviceWorker' in navigator) {
@@ -95,9 +97,42 @@ if ('serviceWorker' in navigator) {
 
         // 2) UI/LocalStorage 동기화
         inboxStore.append(p);
+      } else if (e.data?.type === 'PUSH_CLICK') {
+        // 푸시 알림 클릭 시 페이지 이동 (iOS 호환성 개선)
+        const url = e.data.url || '/favorites';
+        console.log('📱 Received PUSH_CLICK message, navigating to:', url);
+
+        try {
+          // React Router를 사용한 네비게이션 시도
+          if (window.location.pathname !== url) {
+            window.location.href = url;
+          } else {
+            // 이미 해당 페이지에 있으면 새로고침
+            window.location.reload();
+          }
+        } catch (error) {
+          console.error('📱 Navigation failed, using fallback:', error);
+          // 폴백: 강제 페이지 이동
+          window.location.assign(url);
+        }
       }
     });
   }
+}
+
+// 개발 환경에서 Service Worker 테스트용 함수 (전역으로 노출)
+if (import.meta.env.DEV) {
+  (window as any).testNotificationClick = async () => {
+    console.log('🧪 Testing notification click handler...');
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      registration.active?.postMessage({ type: 'TEST_NOTIFICATION_CLICK' });
+    } else {
+      console.warn('🧪 Service Worker not supported');
+    }
+  };
+
+  console.log('🧪 Test function available: window.testNotificationClick()');
 }
 
 /**

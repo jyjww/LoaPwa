@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Favorite } from './entities/favorite.entity';
 import { FavoritesService } from './favorite.service';
 import { FavoritesController } from './favorite.controller';
-import { FavoritesCollectorScheduler } from './favorites-collector.scheduler';
+// import { FavoritesCollectorScheduler } from './favorites-collector.scheduler';
 import { User } from '@/auth/entities/user.entity';
 import { AnonUser } from '@/anon/anon-user.entity';
 import { FavoritesListener } from './favorites.listener';
@@ -32,7 +32,7 @@ import { AnonModule } from '@/anon/anon.module';
     FavoritesService,
     FavoritesListener,
     FavoritesScheduler, // 기존 스케줄러(알림/판정)
-    FavoritesCollectorScheduler, // 신규 스냅샷 수집 스케줄러
+    // FavoritesCollectorScheduler, // 중복 처리 방지를 위해 비활성화
     PriceService,
     PriceSnapshotService,
   ],

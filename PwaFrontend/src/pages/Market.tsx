@@ -126,7 +126,7 @@ const Market = () => {
         tier: filters.tier,
         className: filters.className,
         category: filters.category,
-        subCategory: filters.subCategory,
+        subCategory: filters.subCategory === '전체' ? undefined : filters.subCategory,
       };
 
       const result = await ItemPriceService.collectAndSortMarketResults(searchRequest, {
@@ -246,6 +246,30 @@ const Market = () => {
     };
   }, []);
 
+  // 🔎 검색 실행 함수 (간단 버전 - 나중에 제거될 예정)
+  const triggerSearchSimple = useCallback(() => {
+    setItems([]); // 기존 결과 삭제
+    setHasMore(true);
+    setPageNo(1);
+    fetchPage(1, 'reset');
+  }, [fetchPage]);
+
+  // filters 변경 시 자동 검색 실행 (pageNo 제외)
+  useEffect(() => {
+    // pageNo가 1일 때만 검색 실행 (무한 스크롤 방지)
+    if (filters.pageNo === 1) {
+      triggerSearchSimple();
+    }
+  }, [
+    filters.query,
+    filters.grade,
+    filters.tier,
+    filters.className,
+    filters.category,
+    filters.subCategory,
+    triggerSearchSimple,
+  ]);
+
   // 🔎 검색 버튼: 1페이지로 초기화 후 새로 로드
   const handleSearchButton = async () => {
     triggerSearch();
@@ -282,6 +306,9 @@ const Market = () => {
             yDayAvgPrice: item.marketInfo?.yDayAvgPrice ?? 0,
             recentPrice: item.marketInfo?.recentPrice ?? 0,
             tradeRemainCount: item.marketInfo?.tradeRemainCount ?? 0,
+            categoryCode: filters.category !== '전체' ? Number(filters.category) : undefined,
+            subCategoryCode:
+              filters.subCategory !== '전체' ? Number(filters.subCategory) : undefined,
           },
         });
         toast({ title: '즐겨찾기 추가', description: `${item.name}을(를) 저장했어요.` });
