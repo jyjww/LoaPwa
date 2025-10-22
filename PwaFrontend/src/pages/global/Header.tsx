@@ -6,7 +6,7 @@ import logoLight from '@/assets/icon.svg';
 import logoDark from '@/assets/icon_dark.svg';
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { usePushInbox } from '@/hooks/usePushInbox';
+import { usePushInbox } from '@/stores/inboxStore';
 import ToggleIOS from '@/components/ui/toggleIOS';
 import { usePushToggle } from '@/hooks/usePushToggle';
 import { getOrCreateAnonId, getCurrentAnonId } from '@/services/anonService';
@@ -21,8 +21,8 @@ const Header = () => {
   const [isCreatingAnon, setIsCreatingAnon] = useState(false);
   const [hasAnonId, setHasAnonId] = useState(false);
 
-  // 알림 인박스(뱃지/목록)
-  const { unread, items, resetUnread } = usePushInbox();
+  // 알림 인박스(뱃지/목록) - inboxStore 사용
+  const { items, unread, resetUnread } = usePushInbox();
 
   const goHelp = () => {
     setOpen(false);

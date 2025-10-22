@@ -95,7 +95,7 @@ export class FavoritesScheduler {
     private readonly priceService: PriceService,
   ) {}
 
-  @Cron('*/1 * * * *')
+  @Cron('*/5 * * * *')
   async handleCron(): Promise<void> {
     const runId = Date.now().toString(36);
     this.logger.log(`🔔 [${runId}] FavoritesScheduler 실행`);

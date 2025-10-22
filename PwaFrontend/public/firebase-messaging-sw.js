@@ -216,7 +216,8 @@ self.addEventListener('push', (event) => {
 // 알림 클릭 (단일 리스너)
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification?.data?.url || '/';
+  // 무조건 즐겨찾기 페이지로 이동
+  const targetUrl = '/favorites';
 
   event.waitUntil(
     (async () => {
@@ -224,14 +225,14 @@ self.addEventListener('notificationclick', (event) => {
       const absolute = new URL(targetUrl, self.location.origin).href;
 
       for (const c of all) {
-        // 이미 열린 탭 있으면 포커스
-        if (c.url === absolute && 'focus' in c) {
+        // 이미 열린 탭 있으면 포커스하고 즐겨찾기 페이지로 이동
+        if ('focus' in c) {
           await c.focus();
           c.postMessage({ type: 'PUSH_CLICK', url: absolute });
           return;
         }
       }
-      // 없으면 새 창
+      // 없으면 새 창으로 즐겨찾기 페이지 열기
       const newClient = await self.clients.openWindow(absolute);
       if (newClient) newClient.postMessage({ type: 'PUSH_CLICK', url: absolute });
     })(),

@@ -6,7 +6,14 @@
 
 로알림은 스마일게이트 RPG의 게임 ‘로스트아크’ 거래소 시세를 확인하고, 가격 알림을 받을 수 있는 웹앱(PWA)입니다. 모바일에서도 바로 실행되며, 홈 화면에 추가하여 앱처럼 사용할 수 있습니다. 본 서비스는 스마일게이트 RPG의 공식 서비스가 아닌, 팬메이드 비공식 도구입니다.
 
-개발 기간 : 2025.09 - 2025.10 (1 Month)
+개발 기간 : 2025.09 - 2025.10 (약 2주간 집중 개발)
+
+## 기획 의도 (Planning)
+
+개인적으로 원하는 매물을 찾기 위해 매번 공식 홈페이지의 경매장이나 거래소에 접속해 2차 본인인증을 거치는 과정이 너무 번거로웠습니다.
+모바일로 접속해서 시세를 확인하는 것도 불편하다고 느꼈어요.
+특히 다른 일을 하다가 “어, 지금 싸졌네?” 싶은 순간 바로 사고 싶어도, 매번 들어가서 검색해야 하는 게 귀찮더라고요.
+그래서 “원하는 아이템이 원하는 가격일 때 자동으로 알려주는 서비스가 있으면 얼마나 편할까?” 하는 생각으로 개발을 시작했습니다.
 
 ## 배포 링크 (Demo)
 
@@ -22,11 +29,14 @@
 - 🔔 가격 알림: 목표가 도달 시 푸시/브라우저 알림
 - 📱 PWA: 홈 화면 추가, 오프라인 캐시
 
+
 ## 서비스 화면 (Pages)
 
-|           메인 대시보드            |              즐겨찾기              |             알림 설정              |
-| :--------------------------------: | :--------------------------------: | :--------------------------------: |
-| <img src="이미지URL1" width="200"> | <img src="이미지URL2" width="200"> | <img src="이미지URL3" width="200"> |
+| 메인 대시보드 | 즐겨찾기 | 알림 설정 | 푸시 알림 |
+| :--: | :--: | :--: | :--: |
+| <div align="center"><img src="https://github.com/user-attachments/assets/57667c22-cb75-4c4b-bb01-fa6533dfa5f6" width="220"></div> | <div align="center"><img src="https://github.com/user-attachments/assets/73f430ea-d0d8-44ee-9a49-788bdf58976f" width="220"></div> | <div align="center"><img src="https://github.com/user-attachments/assets/d368fcc8-905a-40e9-83ba-3827331a29fd" width="220"></div> | <div align="center"><img src="https://github.com/user-attachments/assets/7a2f0411-7749-44a6-8815-861eb90f4523" width="220"></div> |
+
+
 
 ## 기술 스택 (Tech Stack)
 
@@ -157,7 +167,7 @@ FCM_SERVER_KEY=your-fcm-server-key
 #### PwaFrontend/.env
 
 ```env
-VITE_API_URL=http://localhost:3000
+VITE_API_URL=http://localhost:4000
 VITE_FCM_VAPID_KEY=your-vapid-key
 ```
 
@@ -181,22 +191,23 @@ npm run test
 
 ```
 LoaPwa/
-├── Backend/                 # NestJS 백엔드
+├── Backend/                # NestJS 백엔드
 │   ├── src/
 │   │   ├── auth/           # 인증 모듈
 │   │   ├── auctions/       # 경매장 API
 │   │   ├── favorites/      # 즐겨찾기 기능
-│   │   ├── fcm/           # 푸시 알림
-│   │   └── watch/         # 가격 감시
-│   └── test/              # E2E 테스트
+│   │   ├── fcm/            # 푸시 알림
+│   │   └── watch/          # 가격 감시
+│   └── test/               # E2E 테스트
 ├── PwaFrontend/            # React 프론트엔드
 │   ├── src/
-│   │   ├── components/    # 재사용 컴포넌트
-│   │   ├── pages/         # 페이지 컴포넌트
-│   │   ├── services/      # API 서비스
-│   │   └── hooks/         # 커스텀 훅
-│   └── public/            # 정적 파일
-└── Infra/                 # 인프라 설정
+│   │   ├── components/     # 재사용 컴포넌트
+│   │   ├── constants/      # 카테고리 필터링 로직
+│   │   ├── pages/          # 페이지 컴포넌트
+│   │   ├── services/       # API 서비스
+│   │   └── hooks/          # 커스텀 훅
+│   └── public/             # 정적 파일
+└── Infra/                  # 인프라 설정
     └── docker-compose.yml
 ```
 
