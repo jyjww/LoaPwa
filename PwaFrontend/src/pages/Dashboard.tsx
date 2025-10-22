@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { TrendingUp, Search, Star, Bell, BarChart3, Download } from 'lucide-react';
 import usePWAInstall from '@/hooks/usePWAInstall';
 import { fetchFavorites } from '@/services/favorites/favorites.service';
+import { getCurrentAnonId } from '@/services/anonService';
 
 type Fav = {
   id: string;
@@ -24,7 +25,11 @@ const Dashboard = () => {
 
   const [favorites, setFavorites] = useState<Fav[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!localStorage.getItem('access_token'));
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    const hasToken = !!localStorage.getItem('access_token');
+    const hasAnonId = !!getCurrentAnonId();
+    return hasToken || hasAnonId;
+  });
 
   // 설치 배너 제어
   useEffect(() => {
@@ -47,14 +52,18 @@ const Dashboard = () => {
     if (ok) setShowPrompt(false);
   };
 
-  // 로그인 상태 감지
+  // 로그인 상태 감지 (토큰 또는 익명 ID 변경)
   useEffect(() => {
-    const onStorage = () => setIsLoggedIn(!!localStorage.getItem('access_token'));
+    const onStorage = () => {
+      const hasToken = !!localStorage.getItem('access_token');
+      const hasAnonId = !!getCurrentAnonId();
+      setIsLoggedIn(hasToken || hasAnonId);
+    };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  // 즐겨찾기 로드 (로그인시에만)
+  // 즐겨찾기 로드 (로그인 사용자 또는 익명 사용자)
   useEffect(() => {
     if (!isLoggedIn) {
       setFavorites([]);
@@ -114,13 +123,8 @@ const Dashboard = () => {
     return { total, alertsBelowTarget, avgChangePct, recentAlerts };
   }, [favorites, isLoggedIn]);
 
-  // UI 헬퍼
-  const HintLogin = () =>
-    !isLoggedIn ? (
-      <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground">
-        로그인해야 이용이 가능합니다.
-      </p>
-    ) : null;
+  // UI 헬퍼 - 익명 사용자도 즐겨찾기 사용 가능하므로 메시지 제거
+  const HintLogin = () => null;
 
   return (
     <div className="p-2 sm:p-4 bg-background">
@@ -278,11 +282,7 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
-            {!isLoggedIn ? (
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                로그인해야 이용이 가능합니다.
-              </p>
-            ) : loading ? (
+            {loading ? (
               <div className="text-xs sm:text-sm text-muted-foreground">불러오는 중…</div>
             ) : stats.recentAlerts.length === 0 ? (
               <div className="text-xs sm:text-sm text-muted-foreground">최근 알림이 없습니다.</div>
