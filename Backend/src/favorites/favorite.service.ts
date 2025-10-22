@@ -5,11 +5,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { Favorite } from './entities/favorite.entity';
 import { User } from '@/auth/entities/user.entity';
+import { AnonUser } from '@/anon/anon-user.entity';
 import { CreateFavoriteDto } from './dto/create-favorite.dto';
 import { shouldTriggerAlert, type AlertCandidate } from '@/favorites/alert.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createHash } from 'crypto';
-import { makeAuctionKey, type CategoryKey } from '@shared/utils/matchAuctionKey';
+import { makeAuctionKey, type CategoryKey } from '@shared/matchAuctionKey';
+import { Principal } from '@shared/auth';
 
 @Injectable()
 export class FavoritesService {
@@ -20,13 +22,43 @@ export class FavoritesService {
 
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+
+    @InjectRepository(AnonUser)
+    private readonly anonUserRepo: Repository<AnonUser>,
   ) {}
+
+  // 👇 개발 중 쿨다운 끄기 (env로 제어)
+  private get cooldownMs() {
+    return process.env.ALERT_DEV_NO_COOLDOWN === '1' ? 0 : 30 * 60 * 1000;
+  }
 
   /**
    * 유저 기준 즐겨찾기 전체 조회 (선택적으로 source 필터링 가능)
    */
   async findAllByUser(userId: string, source?: 'auction' | 'market') {
     const where: FindOptionsWhere<Favorite> = { user: { id: userId } as any };
+    if (source) where.source = source;
+
+    return this.favoriteRepo.find({
+      where,
+      order: { name: 'ASC' },
+    });
+  }
+
+  /**
+   * Principal 기준 즐겨찾기 전체 조회 (user 또는 anon)
+   */
+  async findAllByPrincipal(principal: Principal, source?: 'auction' | 'market') {
+    let where: FindOptionsWhere<Favorite>;
+
+    if (principal.type === 'user') {
+      where = { user: { id: principal.id } as any };
+    } else if (principal.type === 'anon' && principal.id) {
+      where = { anonUser: { id: principal.id } as any };
+    } else {
+      return []; // anon principal with null id
+    }
+
     if (source) where.source = source;
 
     return this.favoriteRepo.find({
@@ -110,6 +142,88 @@ export class FavoritesService {
   }
 
   /**
+   * Principal 기준 즐겨찾기 생성 (user 또는 anon)
+   */
+  async createByPrincipal(principal: Principal, dto: CreateFavoriteDto) {
+    let user: User | undefined;
+    let anonUser: AnonUser | undefined;
+
+    if (principal.type === 'user') {
+      const foundUser = await this.userRepo.findOneBy({ id: principal.id! });
+      if (!foundUser) throw new NotFoundException('User not found');
+      user = foundUser;
+    } else if (principal.type === 'anon' && principal.id) {
+      const foundAnonUser = await this.anonUserRepo.findOneBy({ id: principal.id });
+      if (!foundAnonUser) throw new NotFoundException('Anonymous user not found');
+      anonUser = foundAnonUser;
+    } else {
+      throw new NotFoundException('Invalid principal');
+    }
+
+    // ---------- 공통 정리 ----------
+    const safeTier = dto.tier ?? undefined;
+    const safeQuality = dto.quality ?? undefined;
+
+    let normalizedCurrentPrice = dto.currentPrice;
+    let normalizedPreviousPrice = dto.previousPrice;
+
+    if (dto.source === 'market' && dto.marketInfo) {
+      normalizedCurrentPrice ??= dto.marketInfo.recentPrice ?? dto.marketInfo.currentMinPrice ?? 0;
+      normalizedPreviousPrice ??= dto.marketInfo.yDayAvgPrice ?? undefined;
+    } else if (dto.source === 'auction') {
+      normalizedCurrentPrice ??= 0;
+    }
+
+    // ---------- matchKey 결정(없으면 서버에서 생성) ----------
+    let matchKey = dto.matchKey;
+
+    if (dto.source === 'auction' && !matchKey) {
+      matchKey = makeAuctionKey({
+        name: dto.name,
+        grade: dto.grade,
+        tier: safeTier,
+        quality: safeQuality,
+        options: (dto.options ?? []).map((o) => ({ name: o.name, value: o.value })),
+      });
+    } else if (dto.source === 'market' && !matchKey && typeof dto.itemId === 'number') {
+      matchKey = `mkt:${dto.itemId}`;
+    }
+
+    // ---------- 엔티티 생성 ----------
+    const favorite = this.favoriteRepo.create({
+      user,
+      anonUser,
+      source: dto.source,
+
+      // auction은 matchKey로만 식별, market은 숫자 itemId 유지
+      itemId: dto.source === 'market' && typeof dto.itemId === 'number' ? dto.itemId : undefined,
+      matchKey,
+
+      name: dto.name,
+      grade: dto.grade,
+      icon: dto.icon,
+
+      currentPrice: normalizedCurrentPrice!,
+      previousPrice: normalizedPreviousPrice ?? undefined,
+
+      tier: safeTier,
+      quality: safeQuality,
+      auctionInfo: dto.auctionInfo ?? undefined,
+      options: dto.options ?? undefined,
+      marketInfo: dto.marketInfo ?? undefined,
+
+      targetPrice: dto.targetPrice ?? normalizedCurrentPrice ?? 0,
+
+      isAlerted: false,
+      active: true,
+      lastCheckedAt: undefined,
+      lastNotifiedAt: undefined,
+    });
+
+    return this.favoriteRepo.save(favorite);
+  }
+
+  /**
    * 즐겨찾기 삭제
    */
   async remove(userId: string, favoriteId: string) {
@@ -118,7 +232,30 @@ export class FavoritesService {
       relations: ['user'],
     });
     if (!favorite) throw new NotFoundException('Favorite not found');
-    if (favorite.user.id !== userId) throw new ForbiddenException();
+    if (!favorite.user || favorite.user.id !== userId) throw new ForbiddenException();
+
+    await this.favoriteRepo.remove(favorite);
+    return { message: 'Deleted' };
+  }
+
+  /**
+   * Principal 기준 즐겨찾기 삭제
+   */
+  async removeByPrincipal(principal: Principal, favoriteId: string) {
+    const favorite = await this.favoriteRepo.findOne({
+      where: { id: favoriteId },
+      relations: ['user', 'anonUser'],
+    });
+    if (!favorite) throw new NotFoundException('Favorite not found');
+
+    // 권한 체크
+    if (principal.type === 'user') {
+      if (favorite.user?.id !== principal.id) throw new ForbiddenException();
+    } else if (principal.type === 'anon') {
+      if (favorite.anonUser?.id !== principal.id) throw new ForbiddenException();
+    } else {
+      throw new ForbiddenException();
+    }
 
     await this.favoriteRepo.remove(favorite);
     return { message: 'Deleted' };
@@ -133,7 +270,19 @@ export class FavoritesService {
       relations: ['user'],
     });
     if (!favorite) throw new NotFoundException('Favorite not found');
-    if (favorite.user.id !== userId) throw new ForbiddenException();
+    if (!favorite.user || favorite.user.id !== userId) throw new ForbiddenException();
+
+    favorite.targetPrice = price;
+    return this.favoriteRepo.save(favorite);
+  }
+
+  async updateTargetPriceForAnon(anonId: string, favoriteId: string, price: number) {
+    const favorite = await this.favoriteRepo.findOne({
+      where: { id: favoriteId },
+      relations: ['anonUser'],
+    });
+    if (!favorite) throw new NotFoundException('Favorite not found');
+    if (!favorite.anonUser || favorite.anonUser.id !== anonId) throw new ForbiddenException();
 
     favorite.targetPrice = price;
     return this.favoriteRepo.save(favorite);
@@ -194,7 +343,7 @@ export class FavoritesService {
 
     // 2) 알림 여부 판단
     const shouldNotify = shouldTriggerAlert(nextForCheck, {
-      cooldownMs: 30 * 60 * 1000,
+      cooldownMs: this.cooldownMs,
       crossingOnly: false,
     });
 
@@ -210,11 +359,12 @@ export class FavoritesService {
     if (shouldNotify) {
       this.eventEmitter.emit('favorite.alert', {
         favoriteId: favorite.id,
-        userId: favorite.user.id,
+        userId: favorite.user?.id || 'anon',
         itemId: favorite.itemId,
         currentPrice,
         targetPrice: favorite.targetPrice,
         source: favorite.source,
+        name: favorite.name,
       });
     }
 
@@ -233,7 +383,27 @@ export class FavoritesService {
     });
 
     if (!favorite) throw new NotFoundException('Favorite not found');
-    if (favorite.user.id !== userId) throw new ForbiddenException();
+    if (!favorite.user || favorite.user.id !== userId) throw new ForbiddenException();
+
+    // 🔹 프론트에서 넘어온 알림 설정 반영
+    favorite.isAlerted = alarmDto.isAlerted;
+    favorite.targetPrice = alarmDto.targetPrice;
+
+    return this.favoriteRepo.save(favorite);
+  }
+
+  async updateFavoriteAlarmForAnon(
+    anonId: string,
+    favoriteId: string,
+    alarmDto: { isAlerted: boolean; targetPrice: number },
+  ) {
+    const favorite = await this.favoriteRepo.findOne({
+      where: { id: favoriteId },
+      relations: ['anonUser'],
+    });
+
+    if (!favorite) throw new NotFoundException('Favorite not found');
+    if (!favorite.anonUser || favorite.anonUser.id !== anonId) throw new ForbiddenException();
 
     // 🔹 프론트에서 넘어온 알림 설정 반영
     favorite.isAlerted = alarmDto.isAlerted;
@@ -267,33 +437,36 @@ export class FavoritesService {
       };
 
       const shouldNotify = shouldTriggerAlert(nextForCheck, {
-        cooldownMs: 30 * 60 * 1000,
+        cooldownMs: this.cooldownMs,
         crossingOnly: false,
       });
 
-      // 3) DB patch를 한 번에 구성 (알림이면 lastNotifiedAt 포함)
+      // 3) 알림이 필요한 경우 먼저 lastNotifiedAt 업데이트 (중복 방지)
+      if (shouldNotify) {
+        const notifyTime = new Date();
+        await this.favoriteRepo.update(fav.id, { lastNotifiedAt: notifyTime });
+
+        // 4) 알림 이벤트 발행 (FCM 리스너에서 처리)
+        this.eventEmitter.emit('favorite.alert', {
+          favoriteId: fav.id,
+          userId: fav.user?.id || 'anon',
+          itemId: fav.itemId,
+          currentPrice: nextCurrent,
+          targetPrice: fav.targetPrice,
+          source: fav.source,
+          name: fav.name,
+        });
+      }
+
+      // 5) 나머지 필드 업데이트
       const patch: Partial<Favorite> = {
         currentPrice: nextCurrent,
         previousPrice: nextPrevious,
         marketInfo: fav.source === 'market' ? snap.info : fav.marketInfo,
         auctionInfo: fav.source === 'auction' ? snap.info : fav.auctionInfo,
         lastCheckedAt: snap.lastCheckedAt,
-        ...(shouldNotify ? { lastNotifiedAt: new Date() } : {}),
       };
 
-      // 4) 알림 이벤트 발행 (FCM 리스너에서 처리)
-      if (shouldNotify) {
-        this.eventEmitter.emit('favorite.alert', {
-          favoriteId: fav.id,
-          userId: fav.user.id,
-          itemId: fav.itemId,
-          currentPrice: nextCurrent,
-          targetPrice: fav.targetPrice,
-          source: fav.source,
-        });
-      }
-
-      // 5) 최종 1회 업데이트
       await this.favoriteRepo.update(fav.id, patch);
     }
   }

@@ -71,6 +71,7 @@ export class MarketService {
     const categoryCode =
       (typeof dto.subCategory === 'number' ? dto.subCategory : undefined) ??
       (typeof dto.category === 'number' ? dto.category : undefined) ??
+      (dto.category === '전체' || dto.subCategory === '전체' ? 0 : undefined) ??
       0; // ← '전체'는 0으로 강제 전송
 
     const rawBody = {

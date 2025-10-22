@@ -12,8 +12,14 @@ import { AppService } from './app.service';
 import { AuctionModule } from './auctions/auction.module';
 import { MarketModule } from './markets/market.module';
 import { AuthModule } from './auth/auth.module';
+import { AnonModule } from './anon/anon.module';
 import { FavoritesModule } from './favorites/favorite.module';
 import { FcmModule } from './fcm/fcm.module';
+import { AppCacheModule } from './cache/cache.module';
+import { WatchModule } from './watch/watch.module';
+import { DebugModule } from './debug/debug.module';
+import { PriceModule } from './prices/price.module';
+import { PrincipalResolver } from './auth/principal.resolver';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -25,6 +31,7 @@ const isProd = process.env.NODE_ENV === 'production';
       envFilePath: isProd ? undefined : '.env.development',
       validationSchema: Joi.object({
         NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
+        MIGRATE_ON_BOOT: Joi.string().valid('0', '1').default('0'),
 
         // ▶️ DB: prod에서는 개별 항목 필수, dev는 DATABASE_URL 허용
         DATABASE_URL: Joi.string().uri().allow('').optional(),
@@ -34,8 +41,16 @@ const isProd = process.env.NODE_ENV === 'production';
           otherwise: Joi.optional(),
         }),
         DB_PORT: Joi.number().integer().default(5432),
-        DB_NAME: Joi.string().when('NODE_ENV', { is: 'production', then: Joi.required(), otherwise: Joi.optional() }),
-        DB_USER: Joi.string().when('NODE_ENV', { is: 'production', then: Joi.required(), otherwise: Joi.optional() }),
+        DB_NAME: Joi.string().when('NODE_ENV', {
+          is: 'production',
+          then: Joi.required(),
+          otherwise: Joi.optional(),
+        }),
+        DB_USER: Joi.string().when('NODE_ENV', {
+          is: 'production',
+          then: Joi.required(),
+          otherwise: Joi.optional(),
+        }),
         DB_PASSWORD: Joi.string().allow('').optional(), // 시크릿으로 주입 권장
 
         // OAuth / 외부키
@@ -63,8 +78,17 @@ const isProd = process.env.NODE_ENV === 'production';
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => {
+        console.log('[BOOTCFG]', {
+          NODE_ENV: process.env.NODE_ENV,
+          DATABASE_URL: process.env.DATABASE_URL,
+          using:
+            process.env.NODE_ENV !== 'production' && process.env.DATABASE_URL
+              ? 'DEV_URL'
+              : 'PROD_FIELDS',
+        });
         const prod = cfg.get<'development' | 'test' | 'production'>('NODE_ENV') === 'production';
         const url = cfg.get<string>('DATABASE_URL');
+        const syncOnBoot = cfg.get<string>('SYNC_ON_BOOT') === '1';
 
         if (!prod && url) {
           // 로컬/개발: DATABASE_URL로 간단히
@@ -85,8 +109,10 @@ const isProd = process.env.NODE_ENV === 'production';
           password: cfg.get<string>('DB_PASSWORD'),
           database: cfg.get<string>('DB_NAME'),
           autoLoadEntities: true,
-          synchronize: false, // 운영은 false 권장
-          // ssl: false, // Cloud SQL unix socket이면 보통 불필요
+          synchronize: syncOnBoot, // 운영은 false 권장
+          migrationsRun: false, // main.ts 에서 제어
+          migrations: [__dirname + '/migrations/*.js'],
+          schema: 'public',
         };
       },
     }),
@@ -98,10 +124,15 @@ const isProd = process.env.NODE_ENV === 'production';
     AuctionModule,
     MarketModule,
     AuthModule,
+    AnonModule,
     FavoritesModule,
     FcmModule,
+    AppCacheModule,
+    WatchModule,
+    DebugModule,
+    PriceModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, PrincipalResolver],
 })
 export class AppModule {}

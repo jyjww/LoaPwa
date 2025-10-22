@@ -6,13 +6,14 @@ import { Favorite } from '@/favorites/entities/favorite.entity';
 import { FavoritesService } from './favorite.service';
 import { MarketService } from '@/markets/market.service';
 import { AuctionService } from '@/auctions/auction.service';
+import { PriceService } from '@/prices/price.service';
 import {
   isAuctionMatchKey,
   makeAuctionKey,
   normalizeAuctionKey,
   guessCategory,
   type CategoryKey,
-} from '@shared/utils/matchAuctionKey';
+} from '@shared/matchAuctionKey';
 import {
   allowedFirstOptionsForCategory,
   buildEtcOptionDtos,
@@ -91,6 +92,7 @@ export class FavoritesScheduler {
     private readonly favoritesService: FavoritesService,
     private readonly marketService: MarketService,
     private readonly auctionService: AuctionService,
+    private readonly priceService: PriceService,
   ) {}
 
   @Cron('*/1 * * * *')
@@ -152,6 +154,8 @@ export class FavoritesScheduler {
         try {
           // 5-1) 그룹 캐시 확인
           let snapshot = this.getFromCache(key);
+          let isCacheHit = !!snapshot;
+
           if (!snapshot) {
             // ---------- 거래소 ----------
             if (source === 'market') {
@@ -161,10 +165,19 @@ export class FavoritesScheduler {
                 return;
               }
 
+              // 즐겨찾기에서 카테고리 정보 추출
+              const sampleFav = favs[0];
+              const categoryCode = sampleFav?.marketInfo?.categoryCode || 0;
+              const subCategoryCode = sampleFav?.marketInfo?.subCategoryCode || 0;
+
               const t0 = Date.now();
-              const res = await this.marketService.search({ query: name });
+              const res = await this.marketService.search({
+                query: name,
+                category: categoryCode > 0 ? categoryCode : undefined,
+                subCategory: subCategoryCode > 0 ? subCategoryCode : undefined,
+              });
               this.logger.debug(
-                `🛰️  [${runId}] market.search("${name}") -> items=${res.items?.length ?? 0} (${Date.now() - t0}ms)`,
+                `🛰️  [${runId}] market.search("${name}", cat=${categoryCode}, sub=${subCategoryCode}) -> items=${res.items?.length ?? 0} (${Date.now() - t0}ms)`,
               );
 
               const item = res.items?.find((i: any) => i.id === itemId);
@@ -242,16 +255,40 @@ export class FavoritesScheduler {
               return;
             }
 
-            // 5-2) 스냅샷 캐싱
+            // 5-2) 스냅샷 캐싱 (메모리)
             this.setToCache(key, snapshot);
+
+            // 5-3) price_history에 저장 (DB) - 캐시 미스인 경우에만
+            if (!isCacheHit) {
+              // favorites 테이블의 matchKey를 그대로 사용
+              const matchKey = favs[0]?.matchKey;
+              if (!matchKey) {
+                this.logger.warn(`⚠️ [${runId}] No matchKey found for ${key}`);
+                return;
+              }
+
+              try {
+                await this.priceService.saveSnapshot(matchKey, snapshot.currentPrice, source, {
+                  name,
+                  previousPrice: snapshot.previousPrice,
+                  info: snapshot.info,
+                });
+                this.logger.debug(
+                  `💾 [${runId}] saved to price_history: ${matchKey} price=${snapshot.currentPrice}`,
+                );
+              } catch (dbErr: any) {
+                this.logger.warn(`⚠️ [${runId}] DB save failed for ${matchKey}: ${dbErr?.message}`);
+              }
+            }
+
             this.logger.debug(
               `✅ [${runId}] snapshot for ${key}: current=${snapshot.currentPrice}, prev=${snapshot.previousPrice ?? 'null'}`,
             );
           } else {
-            this.logger.debug(`📦 [${runId}] cache hit for ${key}`);
+            this.logger.debug(`📦 [${runId}] cache hit for ${key} - skipping DB save`);
           }
 
-          // 5-3) 스냅샷 저장 및 알림 판정
+          // 5-4) 스냅샷 저장 및 알림 판정
           await this.favoritesService.updateSnapshotsAndEvaluateAll(favs, {
             currentPrice: snapshot.currentPrice,
             previousPrice: snapshot.previousPrice ?? undefined,

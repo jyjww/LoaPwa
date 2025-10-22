@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src", // dist/data-source.js 로 뽑게
+    "module": "CommonJS",
+    "moduleResolution": "Node", // CJS와 궁합
+    "resolvePackageJsonExports": false, // ★ 상위의 true 를 끈다
+    "target": "ES2020",
+    "declaration": false,
+    "sourceMap": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared/*": ["shared/*"]
+    },
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["src/data-source.ts", "src/migrations/**/*.ts", "src/**/*.entity.ts"]
+}

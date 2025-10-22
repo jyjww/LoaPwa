@@ -1,10 +1,12 @@
 // src/components/AuctionItemCard.tsx
+import clsx from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, TrendingDown, TrendingUp } from 'lucide-react';
-import { useState } from 'react';
+import { Star, TrendingDown, TrendingUp, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Alarm from '@/pages/Alarm';
+import { calculate7DayChange, type PriceChange } from '@/services/price-history.service';
 
 interface ItemOption {
   name: string;
@@ -31,20 +33,22 @@ interface ItemCardProps {
     quality?: number | null;
     tradeCount?: number | null;
     options?: ItemOption[];
-    auctionInfo?: any; // 스냅샷/직접형 모두 수용
+    auctionInfo?: any;
     info?: {
       auctionInfo?: any;
       options?: ItemOption[];
     };
+    isAlerted?: boolean;
+    targetPrice?: number | null;
   };
   onFavorite?: (item: any) => void;
-  isFavorite?: boolean;
+  favoriteId?: string; // ← 이 값만으로 즐겨찾기 상태 판단
+  showAlarm?: boolean;
+  matchKey?: string; // ← price history 조회용 matchKey 추가
 }
 
-// 숫자 보정 헬퍼
 const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-// auctionInfo 정규화: 케이스 A/B 모두 {StartPrice, BidStartPrice, BuyPrice, EndDate}로 변환
 function extractAuctionInfo(item: any): AuctionInfoMerged {
   const candTop = item.auctionInfo;
   const candInfo = item.info?.auctionInfo;
@@ -60,12 +64,52 @@ function extractAuctionInfo(item: any): AuctionInfoMerged {
     };
   };
 
-  // 스냅샷 → 현재값 순 병합(현재값 우선)
   return { ...pick(candInfo), ...pick(candTop) };
 }
 
-const AuctionItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps) => {
+const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm, matchKey }: ItemCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
+  const [isLoadingChange, setIsLoadingChange] = useState(true);
+  const [showSpinner, setShowSpinner] = useState(true);
+  const isFaved = !!favoriteId;
+
+  // 7일 가격 변동폭 계산 (즐겨찾기한 아이템만)
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPriceChange = async () => {
+      // 즐겨찾기된 아이템만 변동폭 계산
+      if (!isFaved) {
+        setIsLoadingChange(false);
+        return;
+      }
+
+      // auction 아이템은 matchKey를 그대로 사용 (예: auc:13ae8604)
+      const itemKey = matchKey || item.id;
+      setIsLoadingChange(true);
+      setShowSpinner(true);
+
+      const change = await calculate7DayChange(itemKey, item.previousPrice || undefined);
+      if (mounted) {
+        setPriceChange(change);
+        setIsLoadingChange(false);
+
+        // 3초 후 스피너 중단 (데이터가 없어도)
+        setTimeout(() => {
+          if (mounted) {
+            setShowSpinner(false);
+          }
+        }, 3000);
+      }
+    };
+
+    loadPriceChange();
+
+    return () => {
+      mounted = false;
+    };
+  }, [item.id, isFaved, matchKey]);
 
   const gradeColors: Record<string, string> = {
     일반: 'bg-gray-600 text-white border-gray-600',
@@ -83,54 +127,27 @@ const AuctionItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps
     setTimeout(() => setIsAnimating(false), 300);
   };
 
-  // --- 핵심: 정규화된 경매가/종료일 ---
   const ai = extractAuctionInfo(item);
+  const buy = num(ai.BuyPrice);
+  const bid = num(ai.BidStartPrice) ?? num(ai.StartPrice);
+  const fallbackCurrent = num(item.currentPrice);
 
-  // 숫자 보정
-  const buy = num(ai.BuyPrice); // 즉시구매가
-  const bid = num(ai.BidStartPrice) ?? num(ai.StartPrice); // 최소입찰가
-  const fallbackCurrent = num(item.currentPrice); // Favorites 폴백(스냅샷)
-
-  // “현재가”(변동률 계산용)
-  const effectiveCurrent = buy != null && buy > 0 ? buy : (bid ?? fallbackCurrent ?? 0);
-
-  // 변동률 기준
-  const base = bid ?? num(item.previousPrice) ?? 0;
-  const changePct = base ? ((effectiveCurrent - base) / base) * 100 : 0;
-
-  // 종료 여부(시간 기준)
   const endedByTime = typeof ai.EndDate === 'string' ? new Date(ai.EndDate) <= new Date() : false;
-
-  // 종료 여부(판매/삭제로 리스트에서 사라진 듯한 스냅샷 기준)
-  // - 즉시구매가/최소입찰가가 모두 없고(falsy) currentPrice 스냅샷만 남아있는 경우
   const endedBySnapshot = (buy == null || buy <= 0) && bid == null && fallbackCurrent != null;
-
-  // 최종 종료 플래그
   const ended = endedByTime || endedBySnapshot;
 
-  // 표시 텍스트
   const buyText = buy != null && buy > 0 ? `${buy.toLocaleString()}G` : '-';
   const bidText = bid != null ? `${bid.toLocaleString()}G` : '-';
   const currentText = fallbackCurrent != null ? `${fallbackCurrent.toLocaleString()}G` : '-';
 
-  // (선택) 스냅샷 표시 플래그 (Favorites에서 내려준 힌트도 함께 체크)
   const fromSnapshot =
     (item as any).__fromSnapshot === true ||
     (item.info && typeof item.info.auctionInfo === 'object' && !!item.info.auctionInfo);
 
-  // 옵션 폴백: item → 스냅샷(상위) → 스냅샷(내부)
-  const options: ItemOption[] =
-    item.options ??
-    (Array.isArray((item.auctionInfo as any)?.options)
-      ? (item.auctionInfo as any).options
-      : undefined) ??
-    item.info?.options ??
-    [];
-
   return (
     <Card className="mobile-card group hover:shadow-lg transition-all duration-300">
       <CardHeader className="pb-2 p-3 sm:p-4 sm:pb-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {item.icon && (
               <img
@@ -147,6 +164,7 @@ const AuctionItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps
                 <Badge className={`text-xs ${gradeColors[item.grade] ?? ''} border`}>
                   {item.grade}
                 </Badge>
+
                 {typeof item.quality === 'number' && (
                   <Badge variant="secondary" className="text-xs">
                     품질: {item.quality}
@@ -162,26 +180,49 @@ const AuctionItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps
             </div>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleFavorite}
-            className={`p-1 sm:p-2 transition-all shrink-0 ${isAnimating ? 'scale-125' : ''} ${
-              isFavorite
-                ? 'text-accent hover:text-accent/80'
-                : 'text-muted-foreground hover:text-accent'
-            }`}
-          >
-            <Star className={`h-3 w-3 sm:h-4 sm:w-4 ${isFavorite ? 'fill-current' : ''}`} />
-          </Button>
+          {/* ⭐ 즐겨찾기 버튼 */}
+          <div className="flex items-start gap-1.5 sm:gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleFavorite}
+              title={isFaved ? '즐겨찾기 해제' : '즐겨찾기'}
+              className={clsx(
+                'p-0 sm:p-0 shrink-0 transition-transform items-start justify-end',
+                isAnimating && 'scale-125',
+                'bg-transparent hover:bg-transparent focus-visible:ring-0',
+                '[&_svg]:!h-5 [&_svg]:!w-5',
+                'group/star',
+              )}
+            >
+              <Star
+                // ⬇︎ 확실하게: 속성 + 클래스 동시 지정
+                fill={isFaved ? 'currentColor' : 'none'}
+                stroke={isFaved ? 'none' : 'currentColor'}
+                className={clsx(
+                  'transition-all duration-150',
+                  isFaved
+                    ? 'text-[var(--color-accent)]'
+                    : 'text-muted-foreground group-hover/star:text-[var(--color-accent)] group-hover/star:[fill:currentColor] group-hover/star:[stroke:none]',
+                )}
+              />
+            </Button>
 
-          <Alarm favoriteId={item.id} />
+            {/* 알림 버튼: favoriteId 있을 때만 표시 */}
+            {(showAlarm || isFaved) && (
+              <Alarm
+                favoriteId={favoriteId ?? ''} // ★ 빈 문자열 방지
+                isFavorite={true} // ★ 필요 시 명시적으로 true
+                defaultIsAlerted={Boolean(item.isAlerted)}
+                defaultTargetPrice={Number(item.targetPrice) || 0}
+              />
+            )}
+          </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-3 sm:p-4 pt-0">
         <div className="space-y-2 sm:space-y-3">
-          {/* 즉시 구매가 */}
           <div className="flex items-center justify-between">
             <span className="text-xs sm:text-sm text-muted-foreground">즉시 구매가</span>
             <span
@@ -191,13 +232,11 @@ const AuctionItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps
             </span>
           </div>
 
-          {/* 최소 입찰가 */}
           <div className="flex items-center justify-between">
             <span className="text-xs sm:text-sm text-muted-foreground">최소 입찰가</span>
             <span className="text-sm sm:text-lg font-bold text-primary">{bidText}</span>
           </div>
 
-          {/* 둘 다 없으면 '현재가' 폴백 */}
           {(buy == null || buy <= 0) && bid == null && (
             <div className="flex items-center justify-between">
               <span className="text-xs sm:text-sm text-muted-foreground">현재가</span>
@@ -205,28 +244,36 @@ const AuctionItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps
             </div>
           )}
 
-          {/* 변동률 */}
-          {base > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Change</span>
-              <div
-                className={`flex items-center gap-1 text-xs sm:text-sm ${changePct > 0 ? 'text-destructive' : 'text-accent'}`}
-              >
-                {changePct > 0 ? (
-                  <TrendingUp className="h-3 w-3" />
-                ) : (
-                  <TrendingDown className="h-3 w-3" />
-                )}
-                <span>{Math.abs(changePct).toFixed(1)}%</span>
-              </div>
+          {/* ✅ 7일 변동폭 (즐겨찾기된 아이템만) */}
+          {isFaved && (
+            <div className="flex items-center justify-between pt-1 border-t border-border/40">
+              <span className="text-xs text-muted-foreground">7일 변동</span>
+              {isLoadingChange || !priceChange ? (
+                <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-muted-foreground">
+                  {showSpinner ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  <span>준비중</span>
+                </div>
+              ) : (
+                <div
+                  className={`flex items-center gap-1 text-xs sm:text-sm font-medium ${
+                    priceChange.changePct > 0 ? 'text-destructive' : 'text-green-600'
+                  }`}
+                >
+                  {priceChange.changePct > 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span>{Math.abs(priceChange.changePct).toFixed(1)}%</span>
+                </div>
+              )}
             </div>
           )}
 
-          {/* 옵션 뱃지 */}
-          {options.length > 0 && (
+          {Array.isArray(item.options) && item.options.length > 0 && (
             <div className="mt-2 space-y-2">
               <div className="flex flex-wrap gap-1">
-                {options
+                {item.options
                   .filter((opt) => ['깨달음', '힘', '민첩', '지능', '체력'].includes(opt.name))
                   .map((opt, idx) => (
                     <Badge key={`base-${idx}`} variant="outline" className="text-[10px] sm:text-xs">
@@ -238,7 +285,7 @@ const AuctionItemCard = ({ item, onFavorite, isFavorite = false }: ItemCardProps
               <hr className="border-t border-gray-600 my-1" />
 
               <div className="flex flex-wrap gap-1">
-                {options
+                {item.options
                   .filter((opt) => !['깨달음', '힘', '민첩', '지능', '체력'].includes(opt.name))
                   .map((opt, idx) => {
                     let tier: '하' | '중' | '상' = '하';

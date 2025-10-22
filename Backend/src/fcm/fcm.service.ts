@@ -61,7 +61,14 @@ export class FcmService {
     }
   }
 
-  async sendPush(message: { userId: string; title: string; body: string }): Promise<void> {
+  // src/fcm/fcm.service.ts (발췌)
+  async sendPush(message: {
+    userId: string;
+    title: string; // 예) "📉 거래소 알림"
+    body: string; // 예) "원한 반지 25,000G (목표 26,000G, -4%)"
+    url?: string; // 예) "/favorites" 또는 "/items/123"
+    data?: Record<string, unknown>; // itemId, source 등 추가 메타
+  }): Promise<void> {
     try {
       const user = await this.userRepo.findOne({
         where: { id: message.userId },
@@ -73,6 +80,15 @@ export class FcmService {
         return;
       }
 
+      const link = message.url || '/favorites';
+      // data는 문자열만 허용하므로 강제 문자열화
+      const extraData: Record<string, string> = {
+        url: link,
+        type: 'ALERT',
+        userId: message.userId,
+        ...Object.fromEntries(Object.entries(message.data ?? {}).map(([k, v]) => [k, String(v)])),
+      };
+
       for (const tokenEntity of user.fcmTokens) {
         try {
           await admin.messaging().send({
@@ -81,13 +97,20 @@ export class FcmService {
               title: message.title,
               body: message.body,
             },
-            data: {
-              url: '/favorites',
-              type: 'ALERT',
-              userId: message.userId,
+            webpush: {
+              fcmOptions: { link }, // SW 없어도 브라우저가 이 링크로 이동 시도
+              notification: {
+                icon: '/icons/icon-192.png',
+                badge: '/icons/badge-72.png',
+                // tag: extraData.itemId ? `item-${extraData.itemId}` : undefined, // 중복 교체 원하면 사용
+                // renotify: true,
+              },
+              headers: { Urgency: 'high' },
             },
+            data: extraData,
           });
-          this.logger.log(`✅ FCM 전송 성공: ${message.title}, token=${tokenEntity.token}`);
+
+          this.logger.log(`✅ FCM 전송 성공: "${message.title}" → token=${tokenEntity.token}`);
         } catch (error: any) {
           if (error?.code === 'messaging/registration-token-not-registered') {
             await this.unregisterToken(tokenEntity.token);

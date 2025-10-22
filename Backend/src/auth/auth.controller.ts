@@ -14,6 +14,7 @@ import { JwtService } from '@nestjs/jwt';
 import { GoogleService } from './google/google.service';
 import { GoogleAuthGuard } from './google/google.guard';
 import { JwtAuthGuard } from './jwt.guard';
+import { PrincipalResolver } from './principal.resolver';
 
 @Controller('auth')
 export class AuthController {
@@ -57,9 +58,16 @@ export class AuthController {
 
   // ✅ JWT 토큰으로 유저 정보 확인
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PrincipalResolver)
   async getProfile(@Req() req: any) {
-    return req.user; // passport-jwt에서 넣어주는 payload (sub, email 등)
+    // 익명 사용자와 일반 사용자 모두 지원
+    if (req.principal.type === 'user') {
+      return { type: 'user', id: req.principal.id };
+    } else if (req.principal.type === 'anon') {
+      return { type: 'anon', id: req.principal.id };
+    } else {
+      throw new Error('Invalid principal type');
+    }
   }
 
   // src/auth/auth.controller.ts

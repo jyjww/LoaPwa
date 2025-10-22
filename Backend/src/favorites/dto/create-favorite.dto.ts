@@ -74,5 +74,7 @@ export class CreateFavoriteDto {
     yDayAvgPrice?: number;
     recentPrice?: number;
     tradeRemainCount?: number;
+    categoryCode?: number;
+    subCategoryCode?: number;
   };
 }

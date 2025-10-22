@@ -14,44 +14,68 @@ import {
 } from '@nestjs/common';
 import { FavoritesService } from './favorite.service';
 import { JwtAuthGuard } from '@/auth/jwt.guard';
+import { PrincipalResolver } from '@/auth/principal.resolver';
 import { CreateFavoriteDto } from './dto/create-favorite.dto';
+import { Principal } from '@shared/auth';
 
 @Controller('favorites')
-@UseGuards(JwtAuthGuard)
 export class FavoritesController {
   private readonly logger = new Logger(FavoritesController.name);
 
   constructor(private readonly favoritesService: FavoritesService) {}
 
   @Get()
-  findAll(@Req() req) {
-    return this.favoritesService.findAllByUser(req.user.id);
+  @UseGuards(PrincipalResolver)
+  findAll(@Req() req: any) {
+    return this.favoritesService.findAllByPrincipal(req.principal);
   }
 
   @Post()
-  create(@Req() req, @Body() dto: CreateFavoriteDto) {
+  @UseGuards(PrincipalResolver)
+  create(@Req() req: any, @Body() dto: CreateFavoriteDto) {
     this.logger.debug(
       `create favorite: source=${dto.source}, itemId=${dto.itemId}, matchKey=${dto.matchKey}`,
     );
-    return this.favoritesService.create(req.user.id, dto);
+    return this.favoritesService.createByPrincipal(req.principal, dto);
   }
 
   @Delete(':id')
-  remove(@Req() req, @Param('id') id: string) {
-    return this.favoritesService.remove(req.user.id, id);
+  @UseGuards(PrincipalResolver)
+  remove(@Req() req: any, @Param('id') id: string) {
+    return this.favoritesService.removeByPrincipal(req.principal, id);
   }
 
   @Patch(':id')
-  update(@Req() req, @Param('id') id: string, @Body() body: { targetPrice: number }) {
-    return this.favoritesService.updateTargetPrice(req.user.id, id, body.targetPrice);
+  @UseGuards(PrincipalResolver)
+  update(@Req() req: any, @Param('id') id: string, @Body() body: { targetPrice: number }) {
+    // 익명 사용자와 일반 사용자 모두 허용
+    if (req.principal.type === 'user') {
+      return this.favoritesService.updateTargetPrice(req.principal.id!, id, body.targetPrice);
+    } else if (req.principal.type === 'anon') {
+      return this.favoritesService.updateTargetPriceForAnon(
+        req.principal.id!,
+        id,
+        body.targetPrice,
+      );
+    } else {
+      throw new Error('Invalid principal type');
+    }
   }
 
   @Patch(':id/alarm')
+  @UseGuards(PrincipalResolver)
   async updateAlarm(
-    @Req() req,
+    @Req() req: any,
     @Param('id') id: string,
     @Body() body: { isAlerted: boolean; targetPrice: number },
   ) {
-    return this.favoritesService.updateFavoriteAlarm(req.user.id, id, body);
+    // 익명 사용자와 일반 사용자 모두 허용
+    if (req.principal.type === 'user') {
+      return this.favoritesService.updateFavoriteAlarm(req.principal.id!, id, body);
+    } else if (req.principal.type === 'anon') {
+      return this.favoritesService.updateFavoriteAlarmForAnon(req.principal.id!, id, body);
+    } else {
+      throw new Error('Invalid principal type');
+    }
   }
 }

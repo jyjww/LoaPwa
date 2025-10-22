@@ -4,15 +4,19 @@ WORKDIR /app/Backend
 COPY Backend/package*.json ./
 RUN npm ci
 
-# 2) dev
-FROM node:20
+# 2) build
+FROM node:20 AS build
 WORKDIR /app/Backend
 COPY --from=deps /app/Backend/node_modules ./node_modules
+COPY Backend/ ./
+RUN npm run build
 
-# ✅ 루트의 공유 설정과 shared 폴더 복사
-COPY tsconfig.base.json /app/tsconfig.base.json
-COPY shared /app/shared
-COPY Backend /app/Backend
+# 3) prod
+FROM node:20 AS prod
+WORKDIR /app/Backend
+COPY --from=deps /app/Backend/node_modules ./node_modules
+COPY --from=build /app/Backend/dist ./dist
 
-EXPOSE 4000
-# start:dev는 compose에서 실행
+ENV PORT=8080
+EXPOSE 8080
+CMD ["node", "dist/main.js"]

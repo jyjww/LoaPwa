@@ -20,6 +20,7 @@ import {
   removeFavorite,
   updateTargetPrice,
 } from '@/services/favorites/favorites.service';
+import { calculate7DayChange } from '@/services/price-history.service';
 
 // ---------- 평탄화 어댑터(모듈 스코프) ----------
 const normalizeAuctionFavorite = (f: any) => {
@@ -56,6 +57,8 @@ const Favorites = () => {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [newTargetPrice, setNewTargetPrice] = useState('');
+  const [avgChange, setAvgChange] = useState<number | null>(null);
+  const [isCalculatingAvg, setIsCalculatingAvg] = useState(false);
 
   // 🔹 컴포넌트 마운트 시 즐겨찾기 불러오기
   useEffect(() => {
@@ -63,9 +66,56 @@ const Favorites = () => {
       .then(setFavorites)
       .catch((err) => {
         console.error('즐겨찾기 불러오기 실패:', err);
-        navigate('/login');
+        // 로그인 UI가 활성화된 경우에만 로그인 페이지로 리다이렉트
+        if (import.meta.env.VITE_LOGIN_UI !== 'off') {
+          navigate('/login');
+        }
       });
   }, [navigate]);
+
+  // 🔹 평균 변동률 계산 (즐겨찾기 변경 시)
+  useEffect(() => {
+    const calculateAverageChange = async () => {
+      if (favorites.length === 0) {
+        setAvgChange(null);
+        return;
+      }
+
+      setIsCalculatingAvg(true);
+      try {
+        const changePromises = favorites.map(async (item) => {
+          // matchKey가 있으면 실제 7일 변동률 계산, 없으면 기존 로직 사용
+          if (item.matchKey) {
+            const change = await calculate7DayChange(item.matchKey, item.previousPrice);
+            return change?.changePct ?? 0;
+          } else {
+            // 기존 로직: previousPrice와 currentPrice 비교
+            return item.previousPrice && item.previousPrice > 0
+              ? ((item.currentPrice - item.previousPrice) / item.previousPrice) * 100
+              : 0;
+          }
+        });
+
+        const changes = await Promise.all(changePromises);
+        const validChanges = changes.filter((change) => !isNaN(change) && isFinite(change));
+
+        if (validChanges.length > 0) {
+          const average =
+            validChanges.reduce((sum, change) => sum + change, 0) / validChanges.length;
+          setAvgChange(average);
+        } else {
+          setAvgChange(null);
+        }
+      } catch (error) {
+        console.error('평균 변동률 계산 실패:', error);
+        setAvgChange(null);
+      } finally {
+        setIsCalculatingAvg(false);
+      }
+    };
+
+    calculateAverageChange();
+  }, [favorites]);
 
   // 🔹 즐겨찾기 삭제
   const handleRemoveFavorite = async (itemId: string) => {
@@ -74,7 +124,10 @@ const Favorites = () => {
       setFavorites((prev) => prev.filter((item) => item.id !== itemId));
     } catch (err) {
       console.error('즐겨찾기 삭제 실패:', err);
-      navigate('/login');
+      // 로그인 UI가 활성화된 경우에만 로그인 페이지로 리다이렉트
+      if (import.meta.env.VITE_LOGIN_UI !== 'off') {
+        navigate('/login');
+      }
     }
   };
 
@@ -92,7 +145,10 @@ const Favorites = () => {
         setFavorites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       } catch (err) {
         console.error('타겟 가격 수정 실패:', err);
-        navigate('/login');
+        // 로그인 UI가 활성화된 경우에만 로그인 페이지로 리다이렉트
+        if (import.meta.env.VITE_LOGIN_UI !== 'off') {
+          navigate('/login');
+        }
       } finally {
         setEditingItem(null);
         setNewTargetPrice('');
@@ -116,7 +172,7 @@ const Favorites = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Star className="h-5 w-5 text-primary" />
-              My Favorites
+              즐겨찾기
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -129,19 +185,13 @@ const Favorites = () => {
               />
               <Stat
                 label="Avg. Change"
-                value={`${
-                  Math.round(
-                    (favorites.reduce((avg, item) => {
-                      const change =
-                        item.previousPrice && item.previousPrice > 0
-                          ? ((item.currentPrice - item.previousPrice) / item.previousPrice) * 100
-                          : 0;
-                      return avg + change;
-                    }, 0) /
-                      Math.max(favorites.length, 1)) *
-                      10,
-                  ) / 10
-                }%`}
+                value={
+                  isCalculatingAvg
+                    ? '계산 중...'
+                    : avgChange !== null
+                      ? `${Math.round(avgChange * 10) / 10}%`
+                      : 'N/A'
+                }
                 className="text-accent"
               />
             </div>
@@ -187,7 +237,9 @@ const Favorites = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Target Price</DialogTitle>
-              <DialogDescription>Set a new target price for {editingItem?.name}</DialogDescription>
+              <DialogDescription aria-describedby="newtarget">
+                Set a new target price for {editingItem?.name}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <Input
@@ -261,27 +313,32 @@ const FavoriteSection = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {alertedItems.map((raw) => {
           const item = raw.source === 'auction' ? normalizeAuctionFavorite(raw) : raw;
-
-          console.log(
-            '[FavoriteSection] alerted=',
-            alertedItems.length,
-            'tracked=',
-            trackedItems.length,
-          );
-
           return (
             <div key={item.id} className="space-y-2">
               {item.source === 'auction' ? (
-                <ItemCard item={item} isFavorite />
+                <ItemCard
+                  item={item}
+                  isFavorite
+                  favoriteId={item.id}
+                  showAlarm
+                  onFavorite={() => {}}
+                  matchKey={item.matchKey}
+                />
               ) : (
-                <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+                <MarketItemCard
+                  item={item}
+                  isFavorite
+                  favoriteId={item.id}
+                  onFavorite={() => {}}
+                  matchKey={item.matchKey}
+                />
               )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
-                  Edit Target
+                  알림 수정
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
-                  Remove
+                  삭제
                 </Button>
               </div>
             </div>
@@ -290,22 +347,36 @@ const FavoriteSection = ({
       </div>
     )}
 
+    {/* 알림 설정이 되지 않은 즐겨찾기만 된 item 로딩 */}
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
       {trackedItems.map((raw) => {
         const item = raw.source === 'auction' ? normalizeAuctionFavorite(raw) : raw;
         return (
           <div key={item.id} className="space-y-2">
             {item.source === 'auction' ? (
-              <ItemCard item={item} isFavorite />
+              <ItemCard
+                item={item}
+                isFavorite
+                favoriteId={item.id}
+                showAlarm
+                onFavorite={() => {}}
+                matchKey={item.matchKey}
+              />
             ) : (
-              <MarketItemCard item={item} isFavorite onFavorite={() => {}} />
+              <MarketItemCard
+                item={item}
+                isFavorite
+                favoriteId={item.id}
+                onFavorite={() => {}}
+                matchKey={item.matchKey}
+              />
             )}
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
-                Edit Target
+                알림 수정
               </Button>
               <Button variant="destructive" size="sm" onClick={() => onRemove(item.id)}>
-                Remove
+                삭제
               </Button>
             </div>
           </div>

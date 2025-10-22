@@ -1,14 +1,30 @@
 // src/favorites/entities/favorite.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from '@/auth/entities/user.entity';
+import { AnonUser } from '@/anon/anon-user.entity';
 
 @Entity()
+@Index('idx_favorite_source_item', ['source', 'itemId']) // 조회 가속
+@Index('idx_favorite_source_match', ['source', 'matchKey'])
 export class Favorite {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.favorites, { onDelete: 'CASCADE' })
-  user: User;
+  @ManyToOne(() => User, (user) => user.favorites, { onDelete: 'CASCADE', nullable: true })
+  user?: User;
+
+  @ManyToOne(() => AnonUser, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'anon_id' })
+  anonUser?: AnonUser;
 
   // 거래소 식별자
   @Column({
@@ -98,6 +114,8 @@ export class Favorite {
     yDayAvgPrice?: number;
     recentPrice?: number;
     tradeRemainCount?: number;
+    categoryCode?: number;
+    subCategoryCode?: number;
   };
 
   @Column('jsonb', { nullable: true })
@@ -115,4 +133,10 @@ export class Favorite {
 
   @Column({ default: true })
   active: boolean;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updatedAt: Date;
 }
