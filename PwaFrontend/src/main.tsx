@@ -58,7 +58,10 @@ if ('serviceWorker' in navigator) {
         // ● 운영모드: 앱 전체 SW 등록
         //  - CI에서 public/firebase-messaging-sw.js를 생성해둔 경우만 등록됨
         try {
-          const fcmReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          const fcmReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/',
+            type: 'classic',
+          });
           console.log('[SW] FCM registered:', fcmReg.scope);
         } catch (e) {
           // 파일이 없을 수도 있으니 경고만

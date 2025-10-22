@@ -4,10 +4,10 @@ export class AlterFavoritesAddAnonId1760976123457 implements MigrationInterface 
   name = 'AlterFavoritesAddAnonId1760976123457';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add anon_id column if not exists
+    // Add anonUserId column if not exists (TypeORM convention)
     await queryRunner.query(`
       ALTER TABLE "favorite" 
-      ADD COLUMN IF NOT EXISTS "anon_id" uuid
+      ADD COLUMN IF NOT EXISTS "anonUserId" uuid
     `);
 
     // Add foreign key constraint if not exists
@@ -18,11 +18,11 @@ export class AlterFavoritesAddAnonId1760976123457 implements MigrationInterface 
           SELECT 1
           FROM pg_constraint c
           JOIN pg_class t ON t.oid = c.conrelid
-          WHERE t.relname = 'favorite' AND c.conname = 'FK_favorite_anon_id'
+          WHERE t.relname = 'favorite' AND c.conname = 'FK_favorite_anonUserId'
         ) THEN
           ALTER TABLE "favorite" 
-          ADD CONSTRAINT "FK_favorite_anon_id" 
-          FOREIGN KEY ("anon_id") REFERENCES "anon_users"("id") ON DELETE CASCADE;
+          ADD CONSTRAINT "FK_favorite_anonUserId" 
+          FOREIGN KEY ("anonUserId") REFERENCES "anon_users"("id") ON DELETE CASCADE;
         END IF;
       END$$;
     `);
@@ -55,7 +55,7 @@ export class AlterFavoritesAddAnonId1760976123457 implements MigrationInterface 
         ) THEN
           ALTER TABLE "favorite" 
           ADD CONSTRAINT "UQ_favorite_anon_item" 
-          UNIQUE ("anon_id", "matchKey");
+          UNIQUE ("anonUserId", "matchKey");
         END IF;
       END$$;
     `);
@@ -67,9 +67,9 @@ export class AlterFavoritesAddAnonId1760976123457 implements MigrationInterface 
     await queryRunner.query(`ALTER TABLE "favorite" DROP CONSTRAINT "UQ_favorite_user_item"`);
 
     // Drop foreign key constraint
-    await queryRunner.query(`ALTER TABLE "favorite" DROP CONSTRAINT "FK_favorite_anon_id"`);
+    await queryRunner.query(`ALTER TABLE "favorite" DROP CONSTRAINT "FK_favorite_anonUserId"`);
 
     // Drop column
-    await queryRunner.query(`ALTER TABLE "favorite" DROP COLUMN "anon_id"`);
+    await queryRunner.query(`ALTER TABLE "favorite" DROP COLUMN "anonUserId"`);
   }
 }

@@ -50,7 +50,6 @@ export class SearchSortDto {
  * - 캐시 상태 조회
  */
 @Controller('search-cache')
-@UseGuards(JwtAuthGuard)
 export class ItemPriceController {
   private readonly log = new Logger(ItemPriceController.name);
 

@@ -2,6 +2,7 @@
   "name": "LoAlarm",
   "short_name": "LoAlarm",
   "start_url": "/?src=pwa",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#111827",
   "theme_color": "#111827",
