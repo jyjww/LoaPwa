@@ -447,21 +447,77 @@ const AuctionHouse = () => {
         </Card>
 
         {/* 결과 */}
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">
-            {loading ? 'Loading...' : `${totalCount} items found`}
-          </h2>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
+        <div className="mb-4">
+          {/* 데스크톱 레이아웃 */}
+          <div className="hidden md:flex items-center justify-between">
+            <h2 className="text-xl font-semibold">
+              {loading ? 'Loading...' : `${totalCount} items found`}
+            </h2>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={onlyBuyNow}
+                  onChange={(e) => setOnlyBuyNow(e.target.checked)}
+                />
+                즉시구매가 있는 매물만
+              </label>
+
+              {/* 가격 정렬 컨트롤 */}
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={collectPriceData}
+                        disabled={isCollectingPrices}
+                        className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        {isCollectingPrices ? '수집 중...' : '가격 정렬'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        {isCollectingPrices
+                          ? '검색 결과를 수집하고 있습니다...'
+                          : '모든 검색 결과를 수집하여 가격별로 정렬합니다'}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {priceSortEnabled && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={priceSortOrder}
+                      onChange={(e) => setPriceSortOrder(e.target.value as 'asc' | 'desc')}
+                      className="px-2 py-1 text-sm border rounded"
+                    >
+                      <option value="asc">낮은 가격순</option>
+                      <option value="desc">높은 가격순</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 모바일 레이아웃 */}
+          <div className="md:hidden space-y-3">
+            <h2 className="text-lg font-semibold">
+              {loading ? 'Loading...' : `${totalCount} items found`}
+            </h2>
+
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={onlyBuyNow}
                 onChange={(e) => setOnlyBuyNow(e.target.checked)}
+                className="w-4 h-4"
               />
-              즉시구매가 있는 매물만
-            </label>
+              <span className="text-sm">즉시구매가 있는 매물만</span>
+            </div>
 
-            {/* 가격 정렬 컨트롤 */}
             <div className="flex items-center gap-2">
               <TooltipProvider>
                 <Tooltip>
@@ -485,16 +541,14 @@ const AuctionHouse = () => {
               </TooltipProvider>
 
               {priceSortEnabled && (
-                <div className="flex items-center gap-2">
-                  <select
-                    value={priceSortOrder}
-                    onChange={(e) => setPriceSortOrder(e.target.value as 'asc' | 'desc')}
-                    className="px-2 py-1 text-sm border rounded"
-                  >
-                    <option value="asc">낮은 가격순</option>
-                    <option value="desc">높은 가격순</option>
-                  </select>
-                </div>
+                <select
+                  value={priceSortOrder}
+                  onChange={(e) => setPriceSortOrder(e.target.value as 'asc' | 'desc')}
+                  className="px-2 py-1 text-sm border rounded"
+                >
+                  <option value="asc">낮은 가격순</option>
+                  <option value="desc">높은 가격순</option>
+                </select>
               )}
             </div>
           </div>

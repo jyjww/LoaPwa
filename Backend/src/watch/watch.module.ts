@@ -10,9 +10,16 @@ import { PriceService } from '@/prices/price.service';
 import { MarketModule } from '@/markets/market.module';
 import { AuctionModule } from '@/auctions/auction.module';
 import { AppCacheModule } from '@/cache/cache.module';
+import { AnonModule } from '@/anon/anon.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AutoWatch]), MarketModule, AuctionModule, AppCacheModule],
+  imports: [
+    TypeOrmModule.forFeature([AutoWatch]),
+    MarketModule,
+    AuctionModule,
+    AppCacheModule,
+    AnonModule,
+  ],
   controllers: [AutoWatchController],
   providers: [AutoWatchService, AutoWatchScheduler, PriceSnapshotService, PriceService],
   exports: [AutoWatchService],

@@ -12,6 +12,7 @@ import { User } from './entities/user.entity';
 import { GoogleStrategy } from './google/google.strategy';
 import { GoogleController } from './google/google.controller';
 import { GoogleService } from './google/google.service';
+import { AnonModule } from '@/anon/anon.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { GoogleService } from './google/google.service';
       }),
     }),
     TypeOrmModule.forFeature([User]),
+    AnonModule,
   ],
   controllers: [AuthController, GoogleController],
   providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleService],

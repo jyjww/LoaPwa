@@ -20,6 +20,7 @@ import {
   removeFavorite,
   updateTargetPrice,
 } from '@/services/favorites/favorites.service';
+import { calculate7DayChange } from '@/services/price-history.service';
 
 // ---------- 평탄화 어댑터(모듈 스코프) ----------
 const normalizeAuctionFavorite = (f: any) => {
@@ -56,6 +57,8 @@ const Favorites = () => {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [newTargetPrice, setNewTargetPrice] = useState('');
+  const [avgChange, setAvgChange] = useState<number | null>(null);
+  const [isCalculatingAvg, setIsCalculatingAvg] = useState(false);
 
   // 🔹 컴포넌트 마운트 시 즐겨찾기 불러오기
   useEffect(() => {
@@ -69,6 +72,50 @@ const Favorites = () => {
         }
       });
   }, [navigate]);
+
+  // 🔹 평균 변동률 계산 (즐겨찾기 변경 시)
+  useEffect(() => {
+    const calculateAverageChange = async () => {
+      if (favorites.length === 0) {
+        setAvgChange(null);
+        return;
+      }
+
+      setIsCalculatingAvg(true);
+      try {
+        const changePromises = favorites.map(async (item) => {
+          // matchKey가 있으면 실제 7일 변동률 계산, 없으면 기존 로직 사용
+          if (item.matchKey) {
+            const change = await calculate7DayChange(item.matchKey, item.previousPrice);
+            return change?.changePct ?? 0;
+          } else {
+            // 기존 로직: previousPrice와 currentPrice 비교
+            return item.previousPrice && item.previousPrice > 0
+              ? ((item.currentPrice - item.previousPrice) / item.previousPrice) * 100
+              : 0;
+          }
+        });
+
+        const changes = await Promise.all(changePromises);
+        const validChanges = changes.filter((change) => !isNaN(change) && isFinite(change));
+
+        if (validChanges.length > 0) {
+          const average =
+            validChanges.reduce((sum, change) => sum + change, 0) / validChanges.length;
+          setAvgChange(average);
+        } else {
+          setAvgChange(null);
+        }
+      } catch (error) {
+        console.error('평균 변동률 계산 실패:', error);
+        setAvgChange(null);
+      } finally {
+        setIsCalculatingAvg(false);
+      }
+    };
+
+    calculateAverageChange();
+  }, [favorites]);
 
   // 🔹 즐겨찾기 삭제
   const handleRemoveFavorite = async (itemId: string) => {
@@ -125,7 +172,7 @@ const Favorites = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Star className="h-5 w-5 text-primary" />
-              My Favorites
+              즐겨찾기
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -138,19 +185,13 @@ const Favorites = () => {
               />
               <Stat
                 label="Avg. Change"
-                value={`${
-                  Math.round(
-                    (favorites.reduce((avg, item) => {
-                      const change =
-                        item.previousPrice && item.previousPrice > 0
-                          ? ((item.currentPrice - item.previousPrice) / item.previousPrice) * 100
-                          : 0;
-                      return avg + change;
-                    }, 0) /
-                      Math.max(favorites.length, 1)) *
-                      10,
-                  ) / 10
-                }%`}
+                value={
+                  isCalculatingAvg
+                    ? '계산 중...'
+                    : avgChange !== null
+                      ? `${Math.round(avgChange * 10) / 10}%`
+                      : 'N/A'
+                }
                 className="text-accent"
               />
             </div>

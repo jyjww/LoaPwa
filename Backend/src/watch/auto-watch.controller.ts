@@ -1,17 +1,19 @@
 // src/watch/auto-watch.controller.ts
 import { Controller, Post, Body, Get, Param, Req, UseGuards } from '@nestjs/common';
 import { AutoWatchService } from './auto-watch.service';
-import { JwtAuthGuard } from '@/auth/jwt.guard';
+import { PrincipalResolver } from '@/auth/principal.resolver';
 import { AutoWatch } from './entities/auto-watch.entity';
 
 @Controller('watch')
 export class AutoWatchController {
   constructor(private svc: AutoWatchService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PrincipalResolver)
   @Get('auto/:itemKey')
   async getAuto(@Req() req: any, @Param('itemKey') itemKeyEncoded: string) {
-    const userId = req.user?.sub || req.user?.id;
+    const userId = req.principal.id;
+    if (!userId) throw new Error('User ID required');
+
     const itemKey = decodeURIComponent(itemKeyEncoded);
 
     // ✅ row의 타입이 AutoWatch | null 로 확정됨
@@ -24,10 +26,12 @@ export class AutoWatchController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PrincipalResolver)
   @Post('auto')
   async setAuto(@Req() req: any, @Body() body: { itemKey: string; enabled: boolean }) {
-    const userId = req.user?.sub || req.user?.id;
+    const userId = req.principal.id;
+    if (!userId) throw new Error('User ID required');
+
     return this.svc.upsert(userId, body.itemKey, body.enabled);
   }
 }

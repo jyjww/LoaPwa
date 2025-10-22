@@ -48,11 +48,18 @@ export class FavoritesController {
   @Patch(':id')
   @UseGuards(PrincipalResolver)
   update(@Req() req: any, @Param('id') id: string, @Body() body: { targetPrice: number }) {
-    // 기존 메서드 사용 (user 기반이므로 principal이 user일 때만)
-    if (req.principal.type !== 'user') {
-      throw new Error('Target price update requires user authentication');
+    // 익명 사용자와 일반 사용자 모두 허용
+    if (req.principal.type === 'user') {
+      return this.favoritesService.updateTargetPrice(req.principal.id!, id, body.targetPrice);
+    } else if (req.principal.type === 'anon') {
+      return this.favoritesService.updateTargetPriceForAnon(
+        req.principal.id!,
+        id,
+        body.targetPrice,
+      );
+    } else {
+      throw new Error('Invalid principal type');
     }
-    return this.favoritesService.updateTargetPrice(req.principal.id!, id, body.targetPrice);
   }
 
   @Patch(':id/alarm')
@@ -62,10 +69,13 @@ export class FavoritesController {
     @Param('id') id: string,
     @Body() body: { isAlerted: boolean; targetPrice: number },
   ) {
-    // 기존 메서드 사용 (user 기반이므로 principal이 user일 때만)
-    if (req.principal.type !== 'user') {
-      throw new Error('Alarm update requires user authentication');
+    // 익명 사용자와 일반 사용자 모두 허용
+    if (req.principal.type === 'user') {
+      return this.favoritesService.updateFavoriteAlarm(req.principal.id!, id, body);
+    } else if (req.principal.type === 'anon') {
+      return this.favoritesService.updateFavoriteAlarmForAnon(req.principal.id!, id, body);
+    } else {
+      throw new Error('Invalid principal type');
     }
-    return this.favoritesService.updateFavoriteAlarm(req.principal.id!, id, body);
   }
 }

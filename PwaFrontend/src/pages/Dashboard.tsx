@@ -7,6 +7,7 @@ import { TrendingUp, Search, Star, Bell, BarChart3, Download } from 'lucide-reac
 import usePWAInstall from '@/hooks/usePWAInstall';
 import { fetchFavorites } from '@/services/favorites/favorites.service';
 import { getCurrentAnonId } from '@/services/anonService';
+import { calculate7DayChange } from '@/services/price-history.service';
 
 type Fav = {
   id: string;
@@ -17,6 +18,7 @@ type Fav = {
   targetPrice?: number | null;
   isAlerted: boolean;
   lastNotifiedAt?: string | Date | null;
+  matchKey?: string;
 };
 
 const Dashboard = () => {
@@ -25,6 +27,8 @@ const Dashboard = () => {
 
   const [favorites, setFavorites] = useState<Fav[]>([]);
   const [loading, setLoading] = useState(false);
+  const [avgChange, setAvgChange] = useState<number | null>(null);
+  const [isCalculatingAvg, setIsCalculatingAvg] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     const hasToken = !!localStorage.getItem('access_token');
     const hasAnonId = !!getCurrentAnonId();
@@ -79,6 +83,53 @@ const Dashboard = () => {
       .finally(() => setLoading(false));
   }, [isLoggedIn]);
 
+  // 🔹 평균 변동률 계산 (즐겨찾기 변경 시)
+  useEffect(() => {
+    const calculateAverageChange = async () => {
+      if (favorites.length === 0) {
+        setAvgChange(null);
+        return;
+      }
+
+      setIsCalculatingAvg(true);
+      try {
+        const changePromises = favorites.map(async (item) => {
+          // matchKey가 있으면 실제 7일 변동률 계산, 없으면 null 반환
+          if (item.matchKey) {
+            const change = await calculate7DayChange(
+              item.matchKey,
+              item.previousPrice ?? undefined,
+            );
+            return change?.changePct ?? null;
+          } else {
+            // matchKey가 없으면 null 반환 (기존 로직 사용 안함)
+            return null;
+          }
+        });
+
+        const changes = await Promise.all(changePromises);
+        const validChanges = changes.filter(
+          (change): change is number => change !== null && !isNaN(change) && isFinite(change),
+        );
+
+        if (validChanges.length > 0) {
+          const average =
+            validChanges.reduce((sum, change) => sum + change, 0) / validChanges.length;
+          setAvgChange(average);
+        } else {
+          setAvgChange(null);
+        }
+      } catch (error) {
+        console.error('평균 변동률 계산 실패:', error);
+        setAvgChange(null);
+      } finally {
+        setIsCalculatingAvg(false);
+      }
+    };
+
+    calculateAverageChange();
+  }, [favorites]);
+
   // ===== 파생 통계 =====
   const stats = useMemo(() => {
     if (!isLoggedIn || favorites.length === 0) {
@@ -98,14 +149,12 @@ const Dashboard = () => {
       return f.isAlerted && hasTarget && f.currentPrice <= (f.targetPrice as number);
     }).length;
 
-    // 평균 변화율 (%)
-    const sumPct = favorites.reduce((acc, f) => {
-      const prev = typeof f.previousPrice === 'number' ? f.previousPrice : null;
-      if (!prev || prev === 0) return acc;
-      return acc + ((f.currentPrice - prev) / prev) * 100;
-    }, 0);
-    const avgChangePct =
-      favorites.length > 0 ? `${Math.round((sumPct / favorites.length) * 10) / 10}%` : '0%';
+    // 평균 변화율 (%) - 새로운 로직 사용
+    const avgChangePct = isCalculatingAvg
+      ? '계산 중...'
+      : avgChange !== null
+        ? `${Math.round(avgChange * 10) / 10}%`
+        : '-';
 
     // 최근 알림(목표가 이한 항목 + 최근 변경 우선) 상위 3
     const recentAlerts = favorites
@@ -121,7 +170,7 @@ const Dashboard = () => {
       .slice(0, 3);
 
     return { total, alertsBelowTarget, avgChangePct, recentAlerts };
-  }, [favorites, isLoggedIn]);
+  }, [favorites, isLoggedIn, avgChange, isCalculatingAvg]);
 
   // UI 헬퍼 - 익명 사용자도 즐겨찾기 사용 가능하므로 메시지 제거
   const HintLogin = () => null;
@@ -162,7 +211,7 @@ const Dashboard = () => {
                     </Button>
                     {/* 여기에도 간단 링크 추가 가능 */}
                     <Button variant="outline" size="sm" asChild>
-                      <Link to="/push-help">알림 설정</Link>
+                      <Link to="/push-help">사용 가이드</Link>
                     </Button>
                   </div>
                 </>

@@ -276,6 +276,18 @@ export class FavoritesService {
     return this.favoriteRepo.save(favorite);
   }
 
+  async updateTargetPriceForAnon(anonId: string, favoriteId: string, price: number) {
+    const favorite = await this.favoriteRepo.findOne({
+      where: { id: favoriteId },
+      relations: ['anonUser'],
+    });
+    if (!favorite) throw new NotFoundException('Favorite not found');
+    if (!favorite.anonUser || favorite.anonUser.id !== anonId) throw new ForbiddenException();
+
+    favorite.targetPrice = price;
+    return this.favoriteRepo.save(favorite);
+  }
+
   /**
    * (선택) 활성 즐겨찾기 조회 - 스케줄러에서 사용
    */
@@ -372,6 +384,26 @@ export class FavoritesService {
 
     if (!favorite) throw new NotFoundException('Favorite not found');
     if (!favorite.user || favorite.user.id !== userId) throw new ForbiddenException();
+
+    // 🔹 프론트에서 넘어온 알림 설정 반영
+    favorite.isAlerted = alarmDto.isAlerted;
+    favorite.targetPrice = alarmDto.targetPrice;
+
+    return this.favoriteRepo.save(favorite);
+  }
+
+  async updateFavoriteAlarmForAnon(
+    anonId: string,
+    favoriteId: string,
+    alarmDto: { isAlerted: boolean; targetPrice: number },
+  ) {
+    const favorite = await this.favoriteRepo.findOne({
+      where: { id: favoriteId },
+      relations: ['anonUser'],
+    });
+
+    if (!favorite) throw new NotFoundException('Favorite not found');
+    if (!favorite.anonUser || favorite.anonUser.id !== anonId) throw new ForbiddenException();
 
     // 🔹 프론트에서 넘어온 알림 설정 반영
     favorite.isAlerted = alarmDto.isAlerted;

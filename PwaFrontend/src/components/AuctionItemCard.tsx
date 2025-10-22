@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, TrendingDown, TrendingUp } from 'lucide-react';
+import { Star, TrendingDown, TrendingUp, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Alarm from '@/pages/Alarm';
 import { calculate7DayChange, type PriceChange } from '@/services/price-history.service';
@@ -71,6 +71,7 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm, matchKey }: 
   const [isAnimating, setIsAnimating] = useState(false);
   const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
   const [isLoadingChange, setIsLoadingChange] = useState(true);
+  const [showSpinner, setShowSpinner] = useState(true);
   const isFaved = !!favoriteId;
 
   // 7일 가격 변동폭 계산 (즐겨찾기한 아이템만)
@@ -87,10 +88,19 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm, matchKey }: 
       // auction 아이템은 matchKey를 그대로 사용 (예: auc:13ae8604)
       const itemKey = matchKey || item.id;
       setIsLoadingChange(true);
+      setShowSpinner(true);
+
       const change = await calculate7DayChange(itemKey, item.previousPrice || undefined);
       if (mounted) {
         setPriceChange(change);
         setIsLoadingChange(false);
+
+        // 3초 후 스피너 중단 (데이터가 없어도)
+        setTimeout(() => {
+          if (mounted) {
+            setShowSpinner(false);
+          }
+        }, 3000);
       }
     };
 
@@ -235,21 +245,28 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm, matchKey }: 
           )}
 
           {/* ✅ 7일 변동폭 (즐겨찾기된 아이템만) */}
-          {isFaved && !isLoadingChange && priceChange && (
+          {isFaved && (
             <div className="flex items-center justify-between pt-1 border-t border-border/40">
               <span className="text-xs text-muted-foreground">7일 변동</span>
-              <div
-                className={`flex items-center gap-1 text-xs sm:text-sm font-medium ${
-                  priceChange.changePct > 0 ? 'text-destructive' : 'text-green-600'
-                }`}
-              >
-                {priceChange.changePct > 0 ? (
-                  <TrendingUp className="h-3 w-3" />
-                ) : (
-                  <TrendingDown className="h-3 w-3" />
-                )}
-                <span>{Math.abs(priceChange.changePct).toFixed(1)}%</span>
-              </div>
+              {isLoadingChange || !priceChange ? (
+                <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-muted-foreground">
+                  {showSpinner ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  <span>준비중</span>
+                </div>
+              ) : (
+                <div
+                  className={`flex items-center gap-1 text-xs sm:text-sm font-medium ${
+                    priceChange.changePct > 0 ? 'text-destructive' : 'text-green-600'
+                  }`}
+                >
+                  {priceChange.changePct > 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span>{Math.abs(priceChange.changePct).toFixed(1)}%</span>
+                </div>
+              )}
             </div>
           )}
 

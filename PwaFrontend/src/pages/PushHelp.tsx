@@ -165,7 +165,7 @@ export default function PushHelp() {
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>알림 사용 가이드</CardTitle>
+          <CardTitle>로알림 사용 가이드</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* 즉시 진단 & 액션 */}
