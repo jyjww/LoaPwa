@@ -6,6 +6,7 @@ import { Star, TrendingDown, TrendingUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Alarm from '@/pages/Alarm';
 import { calculate7DayChange, type PriceChange } from '@/services/price-history.service';
+import { PriceHistoryChart } from '@/components/PriceHistoryChart';
 
 interface MarketItemCardProps {
   item: {
@@ -187,10 +188,9 @@ const MarketItemCard = ({
             </div>
           )}
 
-          {/* ✅ 7일 변동폭 (즐겨찾기된 아이템만) */}
-          {isFaved && !isLoadingChange && priceChange && (
-            <div className="flex items-center justify-between pt-1 border-t border-border/40">
-              <span className="text-xs text-muted-foreground">7일 변동</span>
+          {/* 7일 변동폭 + 차트 버튼 */}
+          <div className="flex items-center justify-between pt-1 border-t border-border/40">
+            {isFaved && !isLoadingChange && priceChange ? (
               <div
                 className={`flex items-center gap-1 text-xs sm:text-sm font-medium ${
                   priceChange.changePct > 0 ? 'text-destructive' : 'text-green-600'
@@ -203,8 +203,18 @@ const MarketItemCard = ({
                 )}
                 <span>{Math.abs(priceChange.changePct).toFixed(1)}%</span>
               </div>
-            </div>
-          )}
+            ) : (
+              <span />
+            )}
+            {isFaved && (
+              <PriceHistoryChart
+                itemKey={matchKey ?? String(item.id)}
+                itemName={item.name}
+                targetPrice={item.targetPrice}
+                currentPrice={item.marketInfo?.currentMinPrice ?? item.currentPrice}
+              />
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

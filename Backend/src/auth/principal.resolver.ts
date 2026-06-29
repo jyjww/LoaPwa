@@ -28,16 +28,17 @@ export class PrincipalResolver implements NestMiddleware {
     // Try to get anonId from header or cookie
     let anonId = req.get('X-Anon-Id') || req.cookies?.anonId;
 
-    // 익명 사용자 ID가 있으면 서버에서 검증
+    // 익명 사용자 ID가 있으면 서버에서 검증 (없으면 자동 upsert — DB 초기화 후에도 쿠키 재활용)
     if (anonId) {
       try {
         const anonUser = await this.anonUserService.findById(anonId);
         if (!anonUser) {
-          // 서버에 존재하지 않는 익명 사용자 ID
-          anonId = null;
+          await this.anonUserService.upsert(anonId, {
+            userAgent: req.get('User-Agent'),
+            lastIp: req.ip,
+          });
         }
       } catch (error) {
-        // 검증 실패 시 익명 사용자 ID 제거
         anonId = null;
       }
     }

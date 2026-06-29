@@ -292,7 +292,27 @@ export class FavoritesService {
    * (선택) 활성 즐겨찾기 조회 - 스케줄러에서 사용
    */
   async findActive() {
-    return this.favoriteRepo.find({ where: { active: true }, relations: ['user'] });
+    return this.favoriteRepo.find({
+      where: { active: true },
+      relations: ['user', 'anonUser'],
+    });
+  }
+
+  /**
+   * stale 즐겨찾기 조회 - PriceRefreshScheduler에서 사용
+   * lastCheckedAt이 null이거나 staleSec초보다 오래된 항목만 반환
+   */
+  async findStaleActive(staleSec: number) {
+    const staleThreshold = new Date(Date.now() - staleSec * 1000);
+    return this.favoriteRepo
+      .createQueryBuilder('f')
+      .leftJoinAndSelect('f.user', 'user')
+      .leftJoinAndSelect('f.anonUser', 'anonUser')
+      .where('f.active = true')
+      .andWhere('(f.lastCheckedAt IS NULL OR f.lastCheckedAt < :threshold)', {
+        threshold: staleThreshold,
+      })
+      .getMany();
   }
 
   /**

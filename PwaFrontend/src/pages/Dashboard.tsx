@@ -8,6 +8,7 @@ import usePWAInstall from '@/hooks/usePWAInstall';
 import { fetchFavorites } from '@/services/favorites/favorites.service';
 import { getCurrentAnonId } from '@/services/anonService';
 import { calculate7DayChange } from '@/services/price-history.service';
+import { PopularMarketSection } from '@/components/PopularMarketSection';
 
 type Fav = {
   id: string;
@@ -219,6 +220,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* ===== 주요 재료 시세 (공개) ===== */}
+        <PopularMarketSection />
 
         {/* ===== Quick Stats ===== */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">

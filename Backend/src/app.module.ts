@@ -60,6 +60,7 @@ const isProd = process.env.NODE_ENV === 'production';
 
         // Lost Ark API 키는 없어도 앱이 죽지 않게
         LOSTARK_API_KEY: Joi.string().allow('').optional(),
+        API_ENCRYPTION_KEY: Joi.string().length(64).allow('').optional(),
 
         // FCM (없으면 푸시 기능만 비활성)
         FCM_PROJECT_ID: Joi.string().allow('').optional(),

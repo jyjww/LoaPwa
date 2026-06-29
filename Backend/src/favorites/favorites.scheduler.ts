@@ -44,7 +44,7 @@ export class FavoritesScheduler {
   private static readonly CACHE_MAX_KEYS = 5000;
 
   // 안전장치: 경매장 페이지 탐색 상한(과도한 API 호출 방지)
-  private static readonly MAX_AUCTION_PAGES = 30;
+  private static readonly MAX_AUCTION_PAGES = 10;
 
   // TTL 검사 + LRU 갱신
   private getFromCache(key: string): Snapshot | null {

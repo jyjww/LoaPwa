@@ -1,20 +1,18 @@
 // src/favorites/favorites.module.ts
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Favorite } from './entities/favorite.entity';
 import { FavoritesService } from './favorite.service';
 import { FavoritesController } from './favorite.controller';
-// import { FavoritesCollectorScheduler } from './favorites-collector.scheduler';
 import { User } from '@/auth/entities/user.entity';
 import { AnonUser } from '@/anon/anon-user.entity';
 import { FavoritesListener } from './favorites.listener';
 import { FcmModule } from '@/fcm/fcm.module';
-import { FavoritesScheduler } from './favorites.scheduler';
+import { AlertScheduler } from './alert.scheduler';
+import { PriceRefreshScheduler } from './price-refresh.scheduler';
 import { MarketModule } from '@/markets/market.module';
 import { AuctionModule } from '@/auctions/auction.module';
 import { PriceService } from '@/prices/price.service';
-import { PriceSnapshotService } from '@/prices/price-snapshot.service';
 import { AppCacheModule } from '@/cache/cache.module';
 import { AnonModule } from '@/anon/anon.module';
 
@@ -22,7 +20,7 @@ import { AnonModule } from '@/anon/anon.module';
   imports: [
     TypeOrmModule.forFeature([Favorite, User, AnonUser]),
     FcmModule,
-    AnonModule, // 익명 사용자 FCM 서비스 사용
+    AnonModule,
     MarketModule,
     AuctionModule,
     AppCacheModule,
@@ -31,10 +29,9 @@ import { AnonModule } from '@/anon/anon.module';
   providers: [
     FavoritesService,
     FavoritesListener,
-    FavoritesScheduler, // 기존 스케줄러(알림/판정)
-    // FavoritesCollectorScheduler, // 중복 처리 방지를 위해 비활성화
+    AlertScheduler,        // DB/Redis only — no external API calls
+    PriceRefreshScheduler, // stale-only refresh, 30 min interval, cache-first
     PriceService,
-    PriceSnapshotService,
   ],
   exports: [FavoritesService],
 })

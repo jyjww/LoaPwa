@@ -7,6 +7,7 @@ import { Star, TrendingDown, TrendingUp, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Alarm from '@/pages/Alarm';
 import { calculate7DayChange, type PriceChange } from '@/services/price-history.service';
+import { PriceHistoryChart } from '@/components/PriceHistoryChart';
 
 interface ItemOption {
   name: string;
@@ -244,14 +245,13 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm, matchKey }: 
             </div>
           )}
 
-          {/* ✅ 7일 변동폭 (즐겨찾기된 아이템만) */}
+          {/* 7일 변동폭 + 차트 버튼 */}
           {isFaved && (
             <div className="flex items-center justify-between pt-1 border-t border-border/40">
-              <span className="text-xs text-muted-foreground">7일 변동</span>
               {isLoadingChange || !priceChange ? (
-                <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-muted-foreground">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   {showSpinner ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  <span>준비중</span>
+                  <span>7일 변동 준비중</span>
                 </div>
               ) : (
                 <div
@@ -267,6 +267,12 @@ const AuctionItemCard = ({ item, onFavorite, favoriteId, showAlarm, matchKey }: 
                   <span>{Math.abs(priceChange.changePct).toFixed(1)}%</span>
                 </div>
               )}
+              <PriceHistoryChart
+                itemKey={matchKey ?? item.id}
+                itemName={item.name}
+                targetPrice={item.targetPrice}
+                currentPrice={item.currentPrice}
+              />
             </div>
           )}
 

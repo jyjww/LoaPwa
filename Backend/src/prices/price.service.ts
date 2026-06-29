@@ -3,8 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 export interface LatestPriceRow {
-  price: number; // 변환된 number
-  captured_at: string; // ISO string (또는 Date로 캐스팅)
+  price: number;
+  captured_at: string;
+  meta: Record<string, any> | null;
 }
 
 @Injectable()
@@ -22,8 +23,8 @@ export class PriceService {
   async saveSnapshot(itemId: string, price: number, source: string, meta?: Record<string, any>) {
     await this.ds.query(
       `
-      INSERT INTO price_history (item_id, source, price, captured_at, meta)
-      VALUES ($1, $2, $3, now(), $4)
+      INSERT INTO price_history (item_id, source, price, captured_at, captured_minute, meta)
+      VALUES ($1, $2, $3, now(), date_trunc('minute', now() AT TIME ZONE 'UTC'), $4)
       ON CONFLICT (item_id, source, captured_minute) DO NOTHING
       `,
       [itemId, source, price, meta ?? null],
@@ -41,7 +42,7 @@ export class PriceService {
     }
 
     const [row] = await this.ds.query(
-      `SELECT price, captured_at
+      `SELECT price, captured_at, meta
         FROM price_history
         WHERE ${where}
         ORDER BY captured_at DESC
@@ -51,8 +52,9 @@ export class PriceService {
 
     if (!row) return null;
     return {
-      price: Number(row.price), // NUMERIC → number
+      price: Number(row.price),
       captured_at: row.captured_at,
+      meta: row.meta ?? null,
     };
   }
 }

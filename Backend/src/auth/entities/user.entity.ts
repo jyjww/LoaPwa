@@ -25,4 +25,8 @@ export class User {
 
   @OneToMany(() => FcmToken, (fcm: FcmToken) => fcm.user, { cascade: true })
   fcmTokens: FcmToken[];
+
+  /** AES-256-GCM encrypted LostArk API key. Format: <ivHex>:<ciphertextHex>:<tagHex> */
+  @Column({ name: 'encrypted_api_key', type: 'text', nullable: true })
+  encryptedApiKey?: string;
 }
