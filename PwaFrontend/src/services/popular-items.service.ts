@@ -10,11 +10,11 @@ export interface PopularItem {
   history: PriceHistoryPoint[];
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
+import { API } from './axiosInstance';
 
 export async function fetchPopularItems(): Promise<PopularItem[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/prices/popular`);
+    const res = await fetch(`${API}/prices/popular`);
     if (!res.ok) return [];
     return res.json();
   } catch {
