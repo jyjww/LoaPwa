@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown, BarChart3, RefreshCw } from 'lucide-react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { fetchPopularItems, type PopularItem } from '@/services/popular-items.service';
@@ -62,8 +62,6 @@ const DetailSheet = ({ item, open, onClose }: { item: PopularItem; open: boolean
   const pad = (max - min) * 0.15 || max * 0.1;
   const domain = prices.length ? [Math.max(0, min - pad), max + pad] : ['auto', 'auto'];
 
-  const isRising = (item.changePct ?? 0) > 0;
-
   return (
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent side="bottom" className="h-[75vh] rounded-t-2xl overflow-y-auto pb-8">
@@ -119,7 +117,7 @@ const DetailSheet = ({ item, open, onClose }: { item: PopularItem; open: boolean
                   const price = payload[0]?.value as number;
                   return price ? (
                     <div className="bg-background border border-border rounded-lg px-2.5 py-1.5 shadow text-xs">
-                      <p className="text-muted-foreground">{formatDate(label)}</p>
+                      <p className="text-muted-foreground">{label ? formatDate(String(label)) : ''}</p>
                       <p className="font-bold text-primary">{price.toLocaleString()}G</p>
                     </div>
                   ) : null;
