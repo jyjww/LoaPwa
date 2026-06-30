@@ -40,7 +40,7 @@ export class FavoritesScheduler {
 
   // ---------- 캐싱 전략 ----------
   private cache = new Map<string, { snap: Snapshot; expiresAt: number }>();
-  private static readonly CACHE_TTL_MS = 10 * 60 * 1000; // 크론 주기(1분) 이하 권장
+  private static readonly CACHE_TTL_MS = 10 * 60 * 1000; // 크론 주기(5분) 이하 권장
   private static readonly CACHE_MAX_KEYS = 5000;
 
   // 안전장치: 경매장 페이지 탐색 상한(과도한 API 호출 방지)
@@ -95,7 +95,7 @@ export class FavoritesScheduler {
     private readonly priceService: PriceService,
   ) {}
 
-  @Cron('*/1 * * * *')
+  @Cron('0 */5 * * * *')
   async handleCron(): Promise<void> {
     const runId = Date.now().toString(36);
     this.logger.log(`🔔 [${runId}] FavoritesScheduler 실행`);

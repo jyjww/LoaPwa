@@ -23,6 +23,7 @@
 
 ## 주요 기능 (Features)
 
+- 📊 주요 재료 시세 대시보드: 21종 재료 일별 시세 자동 수집, 그룹별 차트 (로그인 불필요)
 - 📑 시세 집계: 거래소/경매장 아이템을 한 화면에 비교
 - 📈 최근가 그래프: 일/주 단위 변동 추적
 - ⭐ 즐겨찾기: 관심 품목 묶음
@@ -65,6 +66,8 @@
 
 ## 시스템 아키텍처 (Architecture)
 
+![LoAlarm Full Architecture](loalarm-arch-full.svg)
+
 ```mermaid
 graph TD
   %% ───────── 사용자 영역 ─────────
@@ -74,22 +77,22 @@ graph TD
 
   %% ───────── 프론트엔드 (Firebase Hosting) ─────────
   subgraph FE["Frontend (Firebase Hosting/CDN)"]
-    HOSTING["Firebase Hosting<br/>https://loalarm.com (또는 www)"]
+    HOSTING["Firebase Hosting<br/>https://loalarm.com"]
   end
 
   %% ───────── 백엔드 (Cloud Run / NestJS) ─────────
   subgraph BE["Backend (Google Cloud)"]
-    CR["Cloud Run (NestJS API)<br/>https://api.loalarm.com"]
-    REDIS["Upstash Redis<br/>(cache / queues)"]
-    PG["PostgreSQL (Managed/Cloud SQL 등)"]
-    SCHED["Cloud Scheduler / Run Jobs<br/>(수집·갱신 배치)"]
-    LOG["Cloud Logging / Error Reporting"]
+    CR["Cloud Run (NestJS API)"]
+    SCHED_INT["@Cron 스케줄러<br/>(FavoritesScheduler 5분<br/>PopularItemsScheduler 09:00 KST)"]
+    REDIS["Upstash Redis<br/>(검색 캐시 ZSET / 알림 쿨다운)"]
+    PG["Cloud SQL (PostgreSQL)<br/>(price_history, favorites)"]
+    LOG["Cloud Logging"]
   end
 
   %% ───────── 외부 데이터 소스 ─────────
   subgraph EXT["External Services"]
     LOSTARK["Lost Ark Auction/Market API"]
-    FCM["Web Push (FCM)"]
+    FCM["Firebase FCM"]
   end
 
   %% ───────── CI/CD ─────────
@@ -97,24 +100,15 @@ graph TD
     GH["GitHub Actions"]
   end
 
-  %% 흐름: 사용자 → 프론트
   BROWSER -->|HTTPS| HOSTING
-
-  %% 프론트 → 백엔드
   BROWSER -->|"API (fetch) /api/*"| CR
-
-  %% 백엔드 내부 의존성
   CR <--> REDIS
   CR <--> PG
   CR --> LOG
-  SCHED -->|배치 트리거| CR
-
-  %% 외부 연동
-  CR -->|시세 수집| LOSTARK
-  CR -->|푸시/알림 등록| FCM
+  SCHED_INT -->|시세 수집| LOSTARK
+  SCHED_INT <--> PG
+  CR -->|푸시 발송| FCM
   BROWSER -->|푸시 수신| FCM
-
-  %% 배포 파이프라인
   GH -->|deploy| HOSTING
   GH -->|build & deploy| CR
 ```
@@ -126,65 +120,48 @@ graph TD
 #### 1. 저장소 클론
 
 ```bash
-git clone https://github.com/your-username/LoaPwa.git
+git clone https://github.com/jyjww/LoaPwa.git
 cd LoaPwa
 ```
 
-#### 2. 백엔드 설정
+#### 2. 환경 변수 설정
+
+`Backend/.env` 파일을 생성하고 아래 환경 변수를 채워주세요.
+
+#### 3. 로컬 실행 (dev.sh)
+
+Docker로 DB·백엔드를 띄우고, 로컬에서 프론트엔드를 실행합니다.
 
 ```bash
-cd Backend
-npm install
-cp .env.example .env  # 환경 변수 설정
-npm run start:dev
+chmod +x dev.sh
+./dev.sh dev       # DB + 백엔드(Docker) + 프론트엔드(로컬) 한번에 실행
+./dev.sh logs      # 전체 로그 확인
+./dev.sh down      # 컨테이너 종료
+./dev.sh reset-dev # 볼륨 초기화 후 재시작
 ```
-
-#### 3. 프론트엔드 설정
-
-```bash
-cd ../PwaFrontend
-npm install
-npm run dev
-```
-
-#### 4. 데이터베이스 설정
-
-- PostgreSQL 데이터베이스 생성
-- Redis 서버 실행 (Upstash 또는 로컬)
-- 환경 변수에 DB 연결 정보 입력
 
 ### 환경 변수 설정
 
 #### Backend/.env
 
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/loalarm
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=loa
+DB_USER=loa
+DB_PASSWORD=your-db-password
 REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-jwt-secret
-FCM_SERVER_KEY=your-fcm-server-key
+LOSTARK_API_KEY=your-lostark-api-key
+API_ENCRYPTION_KEY=your-encryption-key
+FCM_CLIENT_EMAIL=your-firebase-client-email
+FIREBASE_SA_JSON=your-firebase-service-account-json
 ```
 
 #### PwaFrontend/.env
 
 ```env
-VITE_API_URL=http://localhost:4000
+VITE_API_URL=http://localhost:4000/api
 VITE_FCM_VAPID_KEY=your-vapid-key
-```
-
-### 개발 스크립트
-
-```bash
-# 백엔드 개발 서버 실행
-npm run start:dev
-
-# 프론트엔드 개발 서버 실행
-npm run dev
-
-# 프로덕션 빌드
-npm run build
-
-# 테스트 실행
-npm run test
 ```
 
 ### 주요 디렉토리 구조
@@ -193,22 +170,23 @@ npm run test
 LoaPwa/
 ├── Backend/                # NestJS 백엔드
 │   ├── src/
-│   │   ├── auth/           # 인증 모듈
+│   │   ├── auth/           # 인증 모듈 (Google OAuth, 익명 세션)
 │   │   ├── auctions/       # 경매장 API
-│   │   ├── favorites/      # 즐겨찾기 기능
+│   │   ├── favorites/      # 즐겨찾기 & 가격 알림 스케줄러
 │   │   ├── fcm/            # 푸시 알림
-│   │   └── watch/          # 가격 감시
-│   └── test/               # E2E 테스트
+│   │   ├── markets/        # 거래소 API & 검색 캐시
+│   │   └── prices/         # 시세 히스토리 & 주요 재료 스케줄러
+│   └── Dockerfile.prod
 ├── PwaFrontend/            # React 프론트엔드
 │   ├── src/
 │   │   ├── components/     # 재사용 컴포넌트
-│   │   ├── constants/      # 카테고리 필터링 로직
 │   │   ├── pages/          # 페이지 컴포넌트
 │   │   ├── services/       # API 서비스
 │   │   └── hooks/          # 커스텀 훅
-│   └── public/             # 정적 파일
-└── Infra/                  # 인프라 설정
-    └── docker-compose.yml
+│   └── public/
+│       └── firebase-messaging-sw.js  # FCM Service Worker
+├── dev.sh                  # 로컬 개발 실행 스크립트
+└── docker-compose.yml      # 로컬 DB & 백엔드 컨테이너
 ```
 
 ## 라이선스 (License)

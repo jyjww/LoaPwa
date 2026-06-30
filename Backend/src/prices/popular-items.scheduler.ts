@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { MarketService } from '@/markets/market.service';
 import { PriceService } from './price.service';
@@ -7,7 +7,7 @@ import { TRACKED_ITEMS } from './tracked-items.config';
 const SOURCE = 'popular';
 
 @Injectable()
-export class PopularItemsScheduler {
+export class PopularItemsScheduler implements OnModuleInit {
   private readonly logger = new Logger(PopularItemsScheduler.name);
 
   constructor(
@@ -15,7 +15,16 @@ export class PopularItemsScheduler {
     private readonly priceService: PriceService,
   ) {}
 
-  /** KST 09:00 (UTC 00:00) — 거래소 초기화 직후 시세 스냅샷 */
+  /** 앱 시작 시 price_history 데이터가 없으면 즉시 1회 수집 */
+  async onModuleInit() {
+    const latest = await this.priceService.getLatest(TRACKED_ITEMS[0].key, { source: SOURCE });
+    if (!latest) {
+      this.logger.log('[popular] DB 데이터 없음 — 초기 수집 시작');
+      await this.handleCron();
+    }
+  }
+
+  /** KST 09:00 (UTC 00:00) 매일 1회 시세 스냅샷 */
   @Cron('0 0 0 * * *')
   async handleCron(): Promise<void> {
     const runId = Date.now();
