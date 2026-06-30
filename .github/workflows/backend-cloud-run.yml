@@ -205,7 +205,8 @@ jobs:
               DB_PASSWORD=DB_PASSWORD:latest,
               GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,
               LOSTARK_API_KEY=LOSTARK_API_KEY:latest,
-              FIREBASE_SA_JSON=FIREBASE_SA_JSON:latest"
+              FIREBASE_SA_JSON=FIREBASE_SA_JSON:latest,
+              API_ENCRYPTION_KEY=API_ENCRYPTION_KEY:latest"
 
       - name: Show service URL
         if: ${{ success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.force == 'true' || steps.changes.outputs.backend == 'true') }}
